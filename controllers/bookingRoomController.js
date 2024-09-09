@@ -1,93 +1,98 @@
-// Mengimpor model BookingRoom dari file '../models/bookingRoom'
-const BookingRoom = require("../models/bookingRoom");
+const BookingRoom = require('../models/bookingRoom');
+const Booking = require('../models/booking');
+const Room = require('../models/room');
 
 // Mendapatkan semua booking rooms
-exports.getAllBookingRooms = (req, res) => {
-  // Memanggil metode getAll dari model BookingRoom
-  BookingRoom.getAll((err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
-        status: "error",
-        message: "Gagal mengambil booking rooms",
-        error: err.message,
-      });
-    }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
+exports.getAllBookingRooms = async (req, res) => {
+  try {
+    const bookingRooms = await BookingRoom.findAll({
+      include: [
+        { model: Booking, attributes: ['booking_date'] },
+        { model: Room, attributes: ['room_number'] }
+      ]
+    });
     res.status(200).json({
       status: "success",
       message: "Booking rooms berhasil diambil",
-      data: results,
+      data: bookingRooms
     });
-  });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil booking rooms",
+      error: error.message
+    });
+  }
 };
 
 // Membuat booking room baru
-exports.createBookingRoom = (req, res) => {
-  // Mendapatkan data booking room dari body request
-  const bookingRoom = req.body;
-
-  // Memanggil metode create dari model BookingRoom
-  BookingRoom.create(bookingRoom, (err) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
-        status: "error",
-        message: "Gagal membuat booking room",
-        error: err.message,
-      });
-    }
-    // Jika berhasil, kirimkan respons sukses dengan status 201
+exports.createBookingRoom = async (req, res) => {
+  const { booking_id, room_id, days } = req.body;
+  try {
+    await BookingRoom.create({ booking_id, room_id, days });
     res.status(201).json({
       status: "success",
-      message: "Booking room berhasil dibuat",
+      message: "Booking room berhasil dibuat"
     });
-  });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal membuat booking room",
+      error: error.message
+    });
+  }
 };
 
 // Memperbarui booking room
-exports.updateBookingRoom = (req, res) => {
-  // Mendapatkan bookingRoomId dari parameter URL dan data booking room dari body request
+exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
-  const bookingRoom = req.body;
-
-  // Memanggil metode update dari model BookingRoom
-  BookingRoom.update(bookingRoomId, bookingRoom, (err) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
+  const { booking_id, room_id, days } = req.body;
+  try {
+    const [updated] = await BookingRoom.update(
+      { booking_id, room_id, days },
+      { where: { booking_room_id: bookingRoomId } }
+    );
+    if (updated === 0) {
+      return res.status(404).json({
         status: "error",
-        message: "Gagal memperbarui booking room",
-        error: err.message,
+        message: "Booking room tidak ditemukan"
       });
     }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
     res.status(200).json({
       status: "success",
-      message: "Booking room berhasil diperbarui",
+      message: "Booking room berhasil diperbarui"
     });
-  });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal memperbarui booking room",
+      error: error.message
+    });
+  }
 };
 
 // Menghapus booking room
-exports.deleteBookingRoom = (req, res) => {
-  // Mendapatkan bookingRoomId dari parameter URL
+exports.deleteBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
-
-  // Memanggil metode delete dari model BookingRoom
-  BookingRoom.delete(bookingRoomId, (err) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
+  try {
+    const deleted = await BookingRoom.destroy({
+      where: { booking_room_id: bookingRoomId }
+    });
+    if (deleted === 0) {
+      return res.status(404).json({
         status: "error",
-        message: "Gagal menghapus booking room",
-        error: err.message,
+        message: "Booking room tidak ditemukan"
       });
     }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
     res.status(200).json({
       status: "success",
-      message: "Booking room berhasil dihapus",
+      message: "Booking room berhasil dihapus"
     });
-  });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal menghapus booking room",
+      error: error.message
+    });
+  }
 };

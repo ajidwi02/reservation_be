@@ -1,119 +1,137 @@
 const Building = require("../models/building");
 
-// Mendapatkan semua data gedung
-exports.getAllBuildings = (req, res) => {
-  // Memanggil metode getAll dari model Building
-  Building.getAll((err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
-        status: "error",
-        message: "Gagal mengambil data gedung",
-        error: err.message,
-      });
-    }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
+exports.getAllBuildings = async (req, res) => {
+  try {
+    const results = await Building.findAll();
     res.status(200).json({
       status: "success",
       message: "Data gedung berhasil diambil",
       data: results,
     });
-  });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil data gedung",
+      error: err.message,
+    });
+  }
 };
 
-// Mendapatkan data gedung berdasarkan ID
-exports.getBuildingById = (req, res) => {
-  // Mendapatkan buildingId dari parameter URL
+exports.getBuildingById = async (req, res) => {
   const buildingId = req.params.id;
 
-  // Memanggil metode getById dari model Building
-  Building.getById(buildingId, (err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
+  try {
+    const building = await Building.findByPk(buildingId);
+    if (building) {
+      res.status(200).json({
+        status: "success",
+        message: "Data gedung berhasil diambil",
+        data: building,
+      });
+    } else {
+      res.status(404).json({
         status: "error",
-        message: "Gagal mengambil data gedung",
-        error: err.message,
+        message: "Gedung tidak ditemukan",
       });
     }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
-    res.status(200).json({
-      status: "success",
-      message: "Data gedung berhasil diambil",
-      data: results,
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil data gedung",
+      error: err.message,
     });
-  });
+  }
 };
 
-// Membuat gedung baru
-exports.createBuilding = (req, res) => {
-  // Mendapatkan nama gedung dari body request
+exports.createBuilding = async (req, res) => {
   const { name } = req.body;
 
-  // Memanggil metode create dari model Building
-  Building.create(name, (err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
-        status: "error",
-        message: "Gagal menambahkan gedung",
-        error: err.message,
-      });
-    }
-    // Jika berhasil, kirimkan respons sukses dengan status 201
+  try {
+    const newBuilding = await Building.create({ name });
     res.status(201).json({
       status: "success",
       message: "Gedung berhasil ditambahkan",
-      data: results,
+      data: newBuilding,
     });
-  });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal menambahkan gedung",
+      error: err.message,
+    });
+  }
 };
 
-// Memperbarui data gedung
-exports.updateBuilding = (req, res) => {
-  // Mendapatkan buildingId dari parameter URL dan nama gedung dari body request
+exports.updateBuilding = async (req, res) => {
   const buildingId = req.params.id;
   const { name } = req.body;
 
-  // Memanggil metode update dari model Building
-  Building.update(buildingId, name, (err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
+  try {
+    const [updated] = await Building.update({ name }, {
+      where: { building_id: buildingId }
+    });
+    if (updated) {
+      const updatedBuilding = await Building.findByPk(buildingId);
+      res.status(200).json({
+        status: "success",
+        message: "Gedung berhasil diperbarui",
+        data: updatedBuilding,
+      });
+    } else {
+      res.status(404).json({
         status: "error",
-        message: "Gagal memperbarui gedung",
-        error: err.message,
+        message: "Gedung tidak ditemukan",
       });
     }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
-    res.status(200).json({
-      status: "success",
-      message: "Gedung berhasil diperbarui",
-      data: results,
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal memperbarui gedung",
+      error: err.message,
     });
-  });
+  }
 };
 
-// Menghapus gedung
-exports.deleteBuilding = (req, res) => {
-  // Mendapatkan buildingId dari parameter URL
+exports.deleteBuilding = async (req, res) => {
   const buildingId = req.params.id;
 
-  // Memanggil metode delete dari model Building
-  Building.delete(buildingId, (err, results) => {
-    if (err) {
-      // Jika terjadi error, kirimkan respons error dengan status 500
-      return res.status(500).json({
+  try {
+    const deleted = await Building.destroy({
+      where: { building_id: buildingId }
+    });
+    if (deleted) {
+      res.status(200).json({
+        status: "success",
+        message: "Gedung berhasil dihapus",
+      });
+    } else {
+      res.status(404).json({
         status: "error",
-        message: "Gagal menghapus gedung",
-        error: err.message,
+        message: "Gedung tidak ditemukan",
       });
     }
-    // Jika berhasil, kirimkan respons sukses dengan status 200
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal menghapus gedung",
+      error: err.message,
+    });
+  }
+};
+
+exports.getAllWithRoomStatus = async (req, res) => {
+  try {
+    const results = await Building.getAllWithRoomStatus();
     res.status(200).json({
       status: "success",
-      message: "Gedung berhasil dihapus",
+      message: "Data gedung dengan status ruangan berhasil diambil",
       data: results,
     });
-  });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil data gedung dengan status ruangan",
+      error: err.message,
+    });
+  }
 };

@@ -7,5 +7,6 @@ router.get("/buildings/:id", buildingController.getBuildingById);
 router.post("/buildings", buildingController.createBuilding);
 router.put("/buildings/:id", buildingController.updateBuilding);
 router.delete("/buildings/:id", buildingController.deleteBuilding);
+router.get('/buildingsMon', buildingController.getAllWithRoomStatus);
 
 module.exports = router;

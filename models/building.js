@@ -1,75 +1,45 @@
-// Mengimpor konfigurasi database dari file '../config/db'
-const db = require("../config/db");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/db");
 
-// Mendefinisikan objek Building dengan berbagai metode untuk mengelola data building
-const Building = {
-  // Mendapatkan semua data building
-  getAll: (callback) => {
-    // Query SQL untuk memilih semua building_id dan nama dari tabel building
-    const query = `
-      SELECT 
-        building_id, 
-        name 
-      FROM 
-        building
-    `;
-    // Menjalankan query dan memanggil callback dengan hasilnya
-    db.query(query, callback);
+const Building = sequelize.define('Building', {
+  building_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  }
+}, {
+  tableName: 'building',
+  timestamps: false
+});
 
-  // Mendapatkan data building berdasarkan ID
-  getById: (buildingId, callback) => {
-    // Query SQL untuk memilih building_id dan nama dari tabel building
-    // berdasarkan ID yang diberikan
-    const query = `
-      SELECT 
-        building_id, 
-        name 
-      FROM 
-        building 
-      WHERE 
-        building_id = ?
-    `;
-    // Menjalankan query dengan parameter buildingId dan memanggil callback dengan hasilnya
-    db.query(query, [buildingId], callback);
-  },
-
-  // Menambahkan building baru
-  create: (name, callback) => {
-    // Query SQL untuk menyisipkan nama building baru ke dalam tabel building
-    const query = `
-      INSERT INTO building (name) 
-      VALUES (?)
-    `;
-    // Menjalankan query dengan parameter nama building dan memanggil callback dengan hasilnya
-    db.query(query, [name], callback);
-  },
-
-  // Memperbarui data building berdasarkan ID
-  update: (buildingId, name, callback) => {
-    // Query SQL untuk memperbarui nama building di tabel building
-    // berdasarkan building_id yang diberikan
-    const query = `
-      UPDATE building 
-      SET name = ? 
-      WHERE building_id = ?
-    `;
-    // Menjalankan query dengan parameter nama building dan buildingId, lalu memanggil callback dengan hasilnya
-    db.query(query, [name, buildingId], callback);
-  },
-
-  // Menghapus data building berdasarkan ID
-  delete: (buildingId, callback) => {
-    // Query SQL untuk menghapus building dari tabel building
-    // berdasarkan building_id yang diberikan
-    const query = `
-      DELETE FROM building 
-      WHERE building_id = ?
-    `;
-    // Menjalankan query dengan parameter buildingId dan memanggil callback dengan hasilnya
-    db.query(query, [buildingId], callback);
-  },
+// Fungsi untuk mendapatkan data dengan status ruangan
+Building.getAllWithRoomStatus = async () => {
+  const query = `
+    SELECT 
+      b.building_id,
+      b.name AS building_name,
+      rs.status_name AS room_status,
+      COUNT(r.room_id) AS room_count
+    FROM 
+      building b
+    LEFT JOIN 
+      room r ON b.building_id = r.building_id
+    LEFT JOIN 
+      room_status rs ON r.status_id = rs.status_id
+    GROUP BY 
+      b.building_id, rs.status_name;
+  `;
+  
+  try {
+    const [results] = await sequelize.query(query);
+    return results;
+  } catch (error) {
+    throw error;
+  }
 };
 
-// Mengekspor objek Building agar dapat digunakan di modul lain
 module.exports = Building;
