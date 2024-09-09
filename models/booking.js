@@ -8,17 +8,17 @@ Booking.init({
   booking_id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    autoIncrement: true
+    autoIncrement: true,
   },
   booking_date: {
     type: DataTypes.DATE,
-    allowNull: false
-  }
+    defaultValue: DataTypes.NOW, 
+  },
 }, {
   sequelize,
   modelName: 'Booking',
   tableName: 'booking',
-  timestamps: false
+  timestamps: false,
 });
 
 module.exports = Booking;

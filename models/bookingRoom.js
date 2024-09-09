@@ -10,31 +10,33 @@ BookingRoom.init({
   booking_room_id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    autoIncrement: true
+    autoIncrement: true,
   },
   booking_id: {
     type: DataTypes.INTEGER,
     references: {
       model: Booking,
-      key: 'booking_id'
-    }
+      key: 'booking_id',
+    },
+    allowNull: false, // Pastikan ada booking_id yang valid
   },
   room_id: {
     type: DataTypes.INTEGER,
     references: {
       model: Room,
-      key: 'room_id'
-    }
+      key: 'room_id',
+    },
+    allowNull: false,
   },
   days: {
     type: DataTypes.INTEGER,
-    allowNull: false
-  }
+    allowNull: false,
+  },
 }, {
   sequelize,
   modelName: 'BookingRoom',
   tableName: 'booking_room',
-  timestamps: false
+  timestamps: false,
 });
 
 // Asosiasi

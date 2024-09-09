@@ -27,18 +27,29 @@ exports.getAllBookingRooms = async (req, res) => {
 
 // Membuat booking room baru
 exports.createBookingRoom = async (req, res) => {
-  const { booking_id, room_id, days } = req.body;
   try {
-    await BookingRoom.create({ booking_id, room_id, days });
-    res.status(201).json({
-      status: "success",
-      message: "Booking room berhasil dibuat"
+    const { room_id, days } = req.body;
+
+    // Pastikan booking_id diisi dari parameter atau entri booking yang ada
+    const booking = await Booking.create(); // Buat booking baru jika belum ada
+    const booking_id = booking.booking_id;
+
+    const bookingRoom = await BookingRoom.create({
+      booking_id,
+      room_id,
+      days,
     });
-  } catch (error) {
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Booking room berhasil dibuat',
+      data: bookingRoom,
+    });
+  } catch (err) {
     res.status(500).json({
-      status: "error",
-      message: "Gagal membuat booking room",
-      error: error.message
+      status: 'error',
+      message: 'Gagal membuat booking room',
+      error: err.message,
     });
   }
 };

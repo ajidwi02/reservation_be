@@ -45,19 +45,18 @@ exports.getBookingById = async (req, res) => {
 
 // Membuat booking baru
 exports.createBooking = async (req, res) => {
-  const { booking_date } = req.body;
   try {
-    const booking = await Booking.create({ booking_date });
+    const booking = await Booking.create(); // Buat entri dengan booking_date default
     res.status(201).json({
-      status: "success",
-      message: "Booking berhasil dibuat",
-      booking_id: booking.booking_id
+      status: 'success',
+      message: 'Booking berhasil dibuat',
+      data: booking,
     });
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({
-      status: "error",
-      message: "Gagal membuat booking",
-      error: error.message
+      status: 'error',
+      message: 'Gagal membuat booking',
+      error: err.message,
     });
   }
 };
