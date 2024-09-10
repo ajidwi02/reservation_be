@@ -14,18 +14,21 @@ const Room = sequelize.define('Room', {
   building_id: {
     type: DataTypes.INTEGER,
     references: {
-      model: 'building',
+      model: 'buildings', // Menggunakan plural untuk konsistensi
       key: 'building_id'
     }
   },
   room_type_id: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    references: {
+      model: 'room_types', // Menggunakan plural untuk konsistensi
+      key: 'room_type_id'
+    }
   },
   status_id: {
     type: DataTypes.INTEGER,
     references: {
-      model: 'room_status',
+      model: 'room_statuses', // Menggunakan plural untuk konsistensi
       key: 'status_id'
     }
   }

@@ -5,6 +5,9 @@ const bookingRoomController = require("../controllers/bookingRoomController");
 // Mendapatkan semua booking rooms
 router.get("/booking-rooms", bookingRoomController.getAllBookingRooms);
 
+// Mendapatkan booking room berdasarkan ID
+router.get("/booking-rooms/:id", bookingRoomController.getBookingRoomById);
+
 // Membuat booking room baru
 router.post("/booking-rooms", bookingRoomController.createBookingRoom);
 

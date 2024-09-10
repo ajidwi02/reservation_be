@@ -119,13 +119,55 @@ exports.deleteBuilding = async (req, res) => {
   }
 };
 
+// controllers/buildingController.js
 exports.getAllWithRoomStatus = async (req, res) => {
   try {
     const results = await Building.getAllWithRoomStatus();
+    
+    const groupedResults = results.reduce((acc, curr) => {
+      // Cari gedung berdasarkan building_id
+      let building = acc.find(item => item.building_id === curr.building_id);
+      
+      if (!building) {
+        // Jika gedung belum ada, tambahkan gedung baru dengan struktur room_status
+        building = {
+          building_id: curr.building_id,
+          building_name: curr.building_name,
+          room_status: {
+            available: {
+              count: 0,
+              rooms: []
+            },
+            not_available: {
+              count: 0,
+              rooms: []
+            },
+            booked: {
+              count: 0,
+              rooms: []
+            }
+          }
+        };
+        acc.push(building);
+      }
+      
+      // Tambahkan jumlah ruangan berdasarkan status
+      if (building.room_status[curr.room_status]) {
+        building.room_status[curr.room_status].count = curr.room_count;
+
+        // Jika ada room_numbers, tambahkan ke masing-masing status
+        if (curr.room_numbers) {
+          building.room_status[curr.room_status].rooms = curr.room_numbers.split(',');
+        }
+      }
+
+      return acc;
+    }, []);
+
     res.status(200).json({
       status: "success",
       message: "Data gedung dengan status ruangan berhasil diambil",
-      data: results,
+      data: groupedResults,
     });
   } catch (err) {
     res.status(500).json({
@@ -135,3 +177,5 @@ exports.getAllWithRoomStatus = async (req, res) => {
     });
   }
 };
+
+

@@ -3,6 +3,7 @@ const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const Booking = require('./booking');
 const Room = require('./room');
+const Building = require('./building');
 
 class BookingRoom extends Model {}
 
@@ -18,7 +19,7 @@ BookingRoom.init({
       model: Booking,
       key: 'booking_id',
     },
-    allowNull: false, // Pastikan ada booking_id yang valid
+    allowNull: false,
   },
   room_id: {
     type: DataTypes.INTEGER,
@@ -42,7 +43,11 @@ BookingRoom.init({
 // Asosiasi
 BookingRoom.belongsTo(Booking, { foreignKey: 'booking_id' });
 BookingRoom.belongsTo(Room, { foreignKey: 'room_id' });
+Room.belongsTo(Building, { foreignKey: 'building_id' }); 
 Booking.hasMany(BookingRoom, { foreignKey: 'booking_id' });
 Room.hasMany(BookingRoom, { foreignKey: 'room_id' });
+
+// Tambahkan asosiasi Building - Room jika perlu
+Building.hasMany(Room, { foreignKey: 'building_id' });
 
 module.exports = BookingRoom;

@@ -16,14 +16,15 @@ const Building = sequelize.define('Building', {
   timestamps: false
 });
 
-// Fungsi untuk mendapatkan data dengan status ruangan
+// models/building.js
 Building.getAllWithRoomStatus = async () => {
   const query = `
     SELECT 
       b.building_id,
       b.name AS building_name,
       rs.status_name AS room_status,
-      COUNT(r.room_id) AS room_count
+      COUNT(r.room_id) AS room_count,
+      GROUP_CONCAT(r.room_number) AS room_numbers
     FROM 
       building b
     LEFT JOIN 
@@ -41,5 +42,7 @@ Building.getAllWithRoomStatus = async () => {
     throw error;
   }
 };
+
+
 
 module.exports = Building;
