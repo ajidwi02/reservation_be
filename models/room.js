@@ -38,7 +38,7 @@ const Room = sequelize.define('Room', {
 });
 
 // Fungsi untuk mendapatkan semua ruangan dengan status
-Room.getAll = async () => {
+Room.getAllByBuildingId = async (building_id) => {
   const query = `
     SELECT 
       room.room_id, 
@@ -51,10 +51,14 @@ Room.getAll = async () => {
       building ON room.building_id = building.building_id
     JOIN 
       room_status ON room.status_id = room_status.status_id
+    WHERE 
+      room.building_id = :building_id
   `;
 
   try {
-    const [results] = await sequelize.query(query);
+    const [results] = await sequelize.query(query, {
+      replacements: { building_id },
+    });
     return results;
   } catch (error) {
     throw error;

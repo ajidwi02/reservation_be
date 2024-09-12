@@ -1,18 +1,20 @@
 const Room = require("../models/room");
 
-// Mendapatkan semua data ruangan
-exports.getAllRooms = async (req, res) => {
+// Mendapatkan data ruangan berdasarkan building_id
+exports.getAllRoomsByBuildingId = async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const results = await Room.getAll();
+    const results = await Room.getAllByBuildingId(id);
     res.status(200).json({
       status: "success",
-      message: "Data ruangan berhasil diambil",
+      message: "Data ruangan berdasarkan building_id berhasil diambil",
       data: results,
     });
   } catch (err) {
     res.status(500).json({
       status: "error",
-      message: "Gagal mengambil data ruangan",
+      message: "Gagal mengambil data ruangan berdasarkan building_id",
       error: err.message,
     });
   }

@@ -123,41 +123,45 @@ exports.deleteBuilding = async (req, res) => {
 exports.getAllWithRoomStatus = async (req, res) => {
   try {
     const results = await Building.getAllWithRoomStatus();
-    
+
     const groupedResults = results.reduce((acc, curr) => {
       // Cari gedung berdasarkan building_id
       let building = acc.find(item => item.building_id === curr.building_id);
-      
+
       if (!building) {
-        // Jika gedung belum ada, tambahkan gedung baru dengan struktur room_status
+        // Jika gedung belum ada, tambahkan gedung baru
         building = {
           building_id: curr.building_id,
           building_name: curr.building_name,
           room_status: {
             available: {
-              count: 0,
-              rooms: []
+              count: 0
             },
             not_available: {
-              count: 0,
-              rooms: []
+              count: 0
             },
             booked: {
-              count: 0,
-              rooms: []
+              count: 0
             }
-          }
+          },
+          rooms: [] // Tambahkan array rooms di luar room_status
         };
         acc.push(building);
       }
-      
+
       // Tambahkan jumlah ruangan berdasarkan status
       if (building.room_status[curr.room_status]) {
-        building.room_status[curr.room_status].count = curr.room_count;
+        building.room_status[curr.room_status].count += curr.room_count;
 
-        // Jika ada room_numbers, tambahkan ke masing-masing status
+        // Jika ada room_numbers, tambahkan ke array rooms
         if (curr.room_numbers) {
-          building.room_status[curr.room_status].rooms = curr.room_numbers.split(',');
+          const roomNumbers = curr.room_numbers.split(',');
+          roomNumbers.forEach(room_number => {
+            building.rooms.push({
+              room_name: room_number,
+              room_status: curr.room_status
+            });
+          });
         }
       }
 
@@ -177,5 +181,6 @@ exports.getAllWithRoomStatus = async (req, res) => {
     });
   }
 };
+
 
 

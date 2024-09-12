@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const roomController = require("../controllers/roomController");
 
-// Mendapatkan semua ruangan
-router.get("/rooms", roomController.getAllRooms);
+// Route untuk mendapatkan semua ruangan berdasarkan building_id
+router.get('/rooms/buildings/:id', roomController.getAllRoomsByBuildingId);
 
 // Mendapatkan ruangan berdasarkan ID
 router.get("/rooms/:id", roomController.getRoomById);
