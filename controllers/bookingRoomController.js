@@ -86,19 +86,49 @@ exports.createBookingRoom = async (req, res) => {
   try {
     const { room_id, days } = req.body;
 
-    // Pastikan booking_id diisi dari parameter atau entri booking yang ada
-    const booking = await Booking.create(); // Buat booking baru jika belum ada
+    // Cek status kamar berdasarkan room_id
+    const room = await Room.findOne({ where: { room_id } });
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Ruangan tidak ditemukan',
+      });
+    }
+
+    // Cek status kamar: jika not_available (status_id = 2) atau booked (status_id = 3)
+    if (room.status_id === 2) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Ruangan tidak tersedia',
+      });
+    } else if (room.status_id === 3) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Ruangan sudah ter-booked',
+      });
+    }
+
+    // Buat booking baru
+    const booking = await Booking.create();
     const booking_id = booking.booking_id;
 
+    // Buat booking room baru
     const bookingRoom = await BookingRoom.create({
       booking_id,
       room_id,
       days,
     });
 
+    // Ubah status kamar menjadi booked (status_id = 3)
+    await Room.update(
+      { status_id: 3 },
+      { where: { room_id } }
+    );
+
     res.status(201).json({
       status: 'success',
-      message: 'Booking room berhasil dibuat',
+      message: 'Booking room berhasil dibuat dan ruangan ter-booked',
       data: bookingRoom,
     });
   } catch (err) {
@@ -109,6 +139,7 @@ exports.createBookingRoom = async (req, res) => {
     });
   }
 };
+
 
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
