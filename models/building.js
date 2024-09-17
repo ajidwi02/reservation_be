@@ -23,6 +23,7 @@ Building.getAllWithRoomStatus = async () => {
       b.building_id,
       b.name AS building_name,
       rs.status_name AS room_status,
+      rt.type_name AS room_type,
       COUNT(r.room_id) AS room_count,
       GROUP_CONCAT(r.room_number) AS room_numbers
     FROM 
@@ -31,8 +32,10 @@ Building.getAllWithRoomStatus = async () => {
       room r ON b.building_id = r.building_id
     LEFT JOIN 
       room_status rs ON r.status_id = rs.status_id
+    LEFT JOIN 
+      room_type rt ON r.room_type_id = rt.room_type_id
     GROUP BY 
-      b.building_id, rs.status_name;
+      b.building_id, rs.status_name, rt.type_name;
   `;
   
   try {
