@@ -1,24 +1,21 @@
-// middleware/authMiddleware.js
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1]; // Mengambil token setelah "Bearer"
+  // Ambil token dari header Authorization
+  const token = req.header('Authorization');
 
   if (!token) {
-    return res
-      .status(401)
-      .json({ status: "error", message: "Tidak ada token, otorisasi ditolak" });
+    return res.status(401).json({ message: 'Akses ditolak. Token tidak tersedia.' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Token tidak valid" });
-    }
-    req.user = decoded;
-    next();
-  });
+  try {
+    // Verifikasi token
+    const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET_KEY);
+    req.user = decoded; // Menyimpan data user ke dalam request object
+    next(); // Lanjut ke endpoint berikutnya
+  } catch (error) {
+    res.status(401).json({ message: 'Token tidak valid' });
+  }
 };
 
 module.exports = authMiddleware;

@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { validationResult } = require("express-validator");
 const User = require("../models/user");
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Fungsi registrasi
 exports.register = async (req, res) => {
@@ -32,29 +33,60 @@ exports.register = async (req, res) => {
   }
 };
 
-// Fungsi login
+// Fungsi login untuk admin
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    // Cari user berdasarkan email
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Invalid credentials' 
+      });
     }
 
+    // Cek apakah password cocok
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Invalid credentials' 
+      });
     }
 
+    // Cek jika user adalah admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ 
+        status: 'error',
+        message: 'Akses ditolak. Hanya admin yang dapat login.' 
+      });
+    }
+
+    // Membuat token JWT dengan informasi role
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: '1h' }
     );
-    res.json({ token });
+
+    // Kirimkan response dengan status message dan data yang mencakup username, email, dan token
+    res.json({
+      status: 'success',
+      message: 'Login berhasil',
+      data: {
+        username: user.username,
+        email: user.email,
+        token
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error logging in", error });
+    res.status(500).json({
+      status: 'error',
+      message: 'Error logging in',
+      error: error.message
+    });
   }
 };
 

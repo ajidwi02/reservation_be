@@ -35,9 +35,7 @@ app.get("/api/admin", [authMiddleware, adminMiddleware], (req, res) => {
   res.json({ msg: "Ini halaman admin" });
 });
 
-app.get("/api/user", authMiddleware, (req, res) => {
-  res.json({ msg: "Ini halaman user" });
-});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
