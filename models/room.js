@@ -44,7 +44,8 @@ Room.getAllByBuildingId = async (building_id) => {
       room.room_id, 
       room.room_number, 
       building.name AS building_name, 
-      room_status.status_name
+      room_status.status_name,
+      room.room_type_id
     FROM 
       room
     JOIN 

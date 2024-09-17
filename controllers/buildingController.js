@@ -159,7 +159,8 @@ exports.getAllWithRoomStatus = async (req, res) => {
           roomNumbers.forEach(room_number => {
             building.rooms.push({
               room_name: room_number,
-              room_status: curr.room_status
+              room_status: curr.room_status,
+              room_type: curr.room_type
             });
           });
         }
