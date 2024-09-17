@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
+const cors = require("cors"); // Import cors
 const roomRoutes = require("./routes/room");
 const buildingRoutes = require("./routes/building");
 const bookingRoutes = require("./routes/booking");
@@ -12,8 +13,12 @@ const userRoutes = require("./routes/userRoute");
 const authMiddleware = require("./middleware/authMiddleware");
 const adminMiddleware = require("./middleware/adminMiddleware");
 
-
 const app = express();
+
+// Konfigurasi CORS
+app.use(cors({
+  origin: "http://localhost:3001", 
+}));
 
 app.use(bodyParser.json());
 

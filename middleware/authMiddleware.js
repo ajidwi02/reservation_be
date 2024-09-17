@@ -10,8 +10,7 @@ const authMiddleware = (req, res, next) => {
       .json({ status: "error", message: "Tidak ada token, otorisasi ditolak" });
   }
 
-  jwt.verify(token, "YOUR_SECRET_KEY", (err, decoded) => {
-    // Ganti dengan kunci rahasia Anda
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
     if (err) {
       return res
         .status(401)
