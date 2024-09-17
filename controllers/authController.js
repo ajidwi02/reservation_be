@@ -68,7 +68,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: '1h' }
+      { expiresIn: '720h' }
     );
 
     // Kirimkan response dengan status message dan data yang mencakup username, email, dan token
