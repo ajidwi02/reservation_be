@@ -14,11 +14,16 @@ const authMiddleware = require("./middleware/authMiddleware");
 const adminMiddleware = require("./middleware/adminMiddleware");
 
 const app = express();
+//swagger
+const swaggerSetup = require("./swagger");
+swaggerSetup(app);
 
 // Konfigurasi CORS
-app.use(cors({
-  origin: "http://localhost:3001", 
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3001",
+  })
+);
 
 app.use(bodyParser.json());
 
@@ -34,8 +39,6 @@ app.use("/api/auth", authRoutes);
 app.get("/api/admin", [authMiddleware, adminMiddleware], (req, res) => {
   res.json({ msg: "Ini halaman admin" });
 });
-
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
