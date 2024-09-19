@@ -12,7 +12,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoute");
 const authMiddleware = require("./middleware/authMiddleware");
 const adminMiddleware = require("./middleware/adminMiddleware");
-
+const historyRoutes = require('./routes/historyRoute');
 const app = express();
 //swagger
 const swaggerSetup = require("./swagger");
@@ -34,6 +34,7 @@ app.use("/api", roomStatusRoutes);
 app.use("/api", roomTypeRoutes);
 app.use("/api", bookingRoomRoutes);
 app.use("/api", userRoutes);
+app.use('/api', historyRoutes);
 app.use("/api/auth", authRoutes);
 
 app.get("/api/admin", [authMiddleware, adminMiddleware], (req, res) => {
