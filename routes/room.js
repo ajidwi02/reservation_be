@@ -126,6 +126,7 @@ router.post(
   roomController.createRoom
 );
 
+
 /**
  * @swagger
  * /rooms/{id}:
