@@ -19,6 +19,43 @@ exports.getAllRoomsByBuildingId = async (req, res) => {
     });
   }
 };
+exports.getAllRoomsByBuildingFloorId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Mengambil semua ruangan berdasarkan building_id
+    const results = await Room.getAllByBuildingId(id);
+
+    // Mengelompokkan ruangan berdasarkan lantai
+    const floors = {
+      "Lantai 1": [],
+      "Lantai 2": [],
+      "Lantai 3": [],
+    };
+
+    results.forEach(room => {
+      if (room.room_number.startsWith("A")) {
+        floors["Lantai 1"].push(room);
+      } else if (room.room_number.startsWith("B")) {
+        floors["Lantai 2"].push(room);
+      } else if (room.room_number.startsWith("C")) {
+        floors["Lantai 3"].push(room);
+      }
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Data ruangan berdasarkan building_id berhasil diambil",
+      data: floors,
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil data ruangan berdasarkan building_id",
+      error: err.message,
+    });
+  }
+};
 
 // Mendapatkan data ruangan berdasarkan ID
 exports.getRoomById = async (req, res) => {

@@ -7,6 +7,8 @@ const adminMiddleware = require("../middleware/adminMiddleware"); // Import admi
 // Route untuk mendapatkan semua ruangan berdasarkan building_id
 router.get('/rooms/buildings/:id', roomController.getAllRoomsByBuildingId);
 
+router.get('/rooms/buildings/floors/:id', roomController.getAllRoomsByBuildingFloorId);
+
 // Mendapatkan ruangan berdasarkan ID
 router.get("/rooms/:id", roomController.getRoomById);
 
