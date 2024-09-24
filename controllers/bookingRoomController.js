@@ -95,6 +95,9 @@ exports.createBookingRoom = async (req, res) => {
     }
 
     const selectedDate = new Date(date);
+    // Set jam menjadi 00:00
+    selectedDate.setHours(0, 0, 0, 0); // Set jam ke 00:00:00.000
+
     if (isNaN(selectedDate.getTime())) {
       return res.status(400).json({
         status: "error",
@@ -141,6 +144,7 @@ exports.createBookingRoom = async (req, res) => {
     });
   }
 };
+
 
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
