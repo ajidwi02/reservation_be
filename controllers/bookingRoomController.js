@@ -95,8 +95,8 @@ exports.createBookingRoom = async (req, res) => {
     }
 
     const selectedDate = new Date(date);
-    // Set jam menjadi 00:00
-    selectedDate.setHours(0, 0, 0, 0); // Set jam ke 00:00:00.000
+    // Set jam menjadi 07:00
+    selectedDate.setHours(7, 0, 0, 0); // Set jam ke 07:00:00.000
 
     if (isNaN(selectedDate.getTime())) {
       return res.status(400).json({
@@ -145,7 +145,6 @@ exports.createBookingRoom = async (req, res) => {
   }
 };
 
-
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
   let { days, date } = req.body;
@@ -153,7 +152,7 @@ exports.updateBookingRoom = async (req, res) => {
   // Validasi tanggal
   const today = new Date().setHours(0, 0, 0, 0); // Reset waktu ke awal hari
   let selectedDate = new Date(date);
-  selectedDate.setHours(0, 0, 0, 0); // Set waktu ke awal hari
+  selectedDate.setHours(7, 0, 0, 0); // Set waktu ke 07:00:00
 
   if (selectedDate < today) {
     return res.status(400).json({
@@ -184,7 +183,7 @@ exports.updateBookingRoom = async (req, res) => {
 
     // Update date di tabel booking
     const [updatedBooking] = await Booking.update(
-      { booking_date: selectedDate }, // Pastikan date memiliki waktu 00:00:00
+      { booking_date: selectedDate }, // Pastikan date memiliki waktu 07:00:00
       { where: { booking_id: bookingRoom.booking_id } }
     );
 
@@ -207,6 +206,7 @@ exports.updateBookingRoom = async (req, res) => {
     });
   }
 };
+
 
 
 

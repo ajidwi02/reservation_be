@@ -65,10 +65,17 @@ exports.createRoom = async (req, res) => {
   }
 };
 
-// Memperbarui data ruangan
 exports.updateRoom = async (req, res) => {
   const roomId = req.params.id;
   const roomData = req.body;
+
+  // Validasi request body
+  if (!roomData || typeof roomData !== 'object') {
+    return res.status(400).json({
+      status: "error",
+      message: "Data yang dikirim tidak valid",
+    });
+  }
 
   try {
     const [updated] = await Room.update(roomData, {
@@ -95,6 +102,7 @@ exports.updateRoom = async (req, res) => {
     });
   }
 };
+
 
 // Menghapus ruangan
 exports.deleteRoom = async (req, res) => {
