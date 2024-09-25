@@ -1,4 +1,3 @@
-// models/bookingRoom.js
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const Booking = require('./booking');
@@ -20,6 +19,7 @@ BookingRoom.init({
       key: 'booking_id',
     },
     allowNull: false,
+    
   },
   room_id: {
     type: DataTypes.INTEGER,
@@ -41,13 +41,13 @@ BookingRoom.init({
 });
 
 // Asosiasi
-BookingRoom.belongsTo(Booking, { foreignKey: 'booking_id' });
+BookingRoom.belongsTo(Booking, { foreignKey: 'booking_id', onDelete: 'CASCADE' });
 BookingRoom.belongsTo(Room, { foreignKey: 'room_id' });
 Room.belongsTo(Building, { foreignKey: 'building_id' }); 
 Booking.hasMany(BookingRoom, { foreignKey: 'booking_id' });
 Room.hasMany(BookingRoom, { foreignKey: 'room_id' });
-BookingRoom.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+
 // Tambahkan asosiasi Building - Room jika perlu
 Building.hasMany(Room, { foreignKey: 'building_id' });
-
+// Pastikan untuk mengekspor model tanpa memanggil constructor
 module.exports = BookingRoom;

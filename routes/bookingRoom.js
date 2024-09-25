@@ -9,6 +9,9 @@ router.get("/booking-rooms", bookingRoomController.getAllBookingRooms);
 // Mendapatkan booking room berdasarkan ID (tidak memerlukan autentikasi)
 router.get("/booking-rooms/:id", bookingRoomController.getBookingRoomById);
 
+// ** Menambahkan route baru untuk mendapatkan booking room berdasarkan room_id
+router.get("/booking-rooms/room/:id", bookingRoomController.getBookingRoomByRoomId); // Route baru ini
+
 // Membuat booking room baru (memerlukan autentikasi)
 router.post("/booking-rooms", authMiddleware, bookingRoomController.createBookingRoom);
 

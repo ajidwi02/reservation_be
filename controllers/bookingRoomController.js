@@ -81,6 +81,49 @@ exports.getBookingRoomById = async (req, res) => {
   }
 };
 
+// Mendapatkan booking room berdasarkan room_id
+exports.getBookingRoomByRoomId = async (req, res) => {
+  const roomId = req.params.id; // Ambil room_id dari parameter
+  try {
+    const bookingRoom = await BookingRoom.findOne({
+      where: { room_id: roomId }, // Mencari berdasarkan room_id
+      include: [
+        {
+          model: Booking,
+          attributes: ["booking_date"],
+        },
+        {
+          model: Room,
+          attributes: ["room_number"],
+          include: [
+            {
+              model: Building,
+              attributes: ["name"], // Include nama gedung
+            },
+          ],
+        },
+      ],
+    });
+    if (!bookingRoom) {
+      return res.status(404).json({
+        status: "error",
+        message: "Booking room tidak ditemukan",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      message: "Booking room berhasil diambil",
+      data: bookingRoom,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil booking room",
+      error: error.message,
+    });
+  }
+};
+
 // Membuat booking room baru
 exports.createBookingRoom = async (req, res) => {
   try {
@@ -165,7 +208,7 @@ exports.updateBookingRoom = async (req, res) => {
     // Cari booking_id terkait booking_room_id
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
-      include: [{ model: Booking, as: 'booking' }] // Gunakan alias 'booking'
+      include: [Booking], // Menghapus alias
     });
 
     if (!bookingRoom) {
@@ -183,10 +226,11 @@ exports.updateBookingRoom = async (req, res) => {
 
     // Update date di tabel booking
     const [updatedBooking] = await Booking.update(
-      { booking_date: selectedDate }, // Pastikan date memiliki waktu 07:00:00
+      { booking_date: selectedDate },
       { where: { booking_id: bookingRoom.booking_id } }
     );
 
+    // Periksa jika ada yang diperbarui
     if (updatedBookingRoom === 0 && updatedBooking === 0) {
       return res.status(404).json({
         status: "error",
@@ -199,6 +243,7 @@ exports.updateBookingRoom = async (req, res) => {
       message: "Booking room dan tanggal berhasil diperbarui",
     });
   } catch (error) {
+    console.error("Error updating booking room:", error); // Tambahkan log untuk debugging
     res.status(500).json({
       status: "error",
       message: "Gagal memperbarui booking room dan tanggal",
@@ -207,28 +252,58 @@ exports.updateBookingRoom = async (req, res) => {
   }
 };
 
-
-
-
-
 // Menghapus booking room
 exports.deleteBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
   try {
+    // Pertama, cari booking_room yang ingin dihapus
+    const bookingRoom = await BookingRoom.findOne({
+      where: { booking_room_id: bookingRoomId },
+    });
+
+    // Jika tidak ditemukan, kembalikan status 404
+    if (!bookingRoom) {
+      return res.status(404).json({
+        status: "error",
+        message: "Booking room tidak ditemukan",
+      });
+    }
+
+    // Ambil booking_id dari booking room yang ditemukan
+    const bookingId = bookingRoom.booking_id;
+
+    // Hapus booking room berdasarkan ID
     const deleted = await BookingRoom.destroy({
       where: { booking_room_id: bookingRoomId },
     });
+
+    // Jika tidak ada booking room yang dihapus, kembalikan status 404
     if (deleted === 0) {
       return res.status(404).json({
         status: "error",
         message: "Booking room tidak ditemukan",
       });
     }
+
+    // Memeriksa apakah ada booking room lain untuk booking_id yang sama
+    const bookingRoomCount = await BookingRoom.count({
+      where: { booking_id: bookingId },
+    });
+
+    // Jika tidak ada booking room yang tersisa, hapus booking
+    if (bookingRoomCount === 0) {
+      await Booking.destroy({
+        where: { booking_id: bookingId },
+      });
+    }
+    
+    // Mengembalikan respons sukses
     res.status(200).json({
       status: "success",
       message: "Booking room berhasil dihapus",
     });
   } catch (error) {
+    // Menangani kesalahan
     res.status(500).json({
       status: "error",
       message: "Gagal menghapus booking room",
@@ -236,3 +311,4 @@ exports.deleteBookingRoom = async (req, res) => {
     });
   }
 };
+
