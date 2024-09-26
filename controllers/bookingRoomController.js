@@ -198,7 +198,6 @@ exports.createBookingRoom = async (req, res) => {
   }
 };
 
-
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
   let { days, date } = req.body;
@@ -219,7 +218,7 @@ exports.updateBookingRoom = async (req, res) => {
     // Cari booking_id terkait booking_room_id
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
-      include: [Booking], // Menghapus alias
+      include: [Booking],
     });
 
     if (!bookingRoom) {
@@ -228,6 +227,11 @@ exports.updateBookingRoom = async (req, res) => {
         message: "Booking room tidak ditemukan",
       });
     }
+
+    // Hapus riwayat sebelumnya di tabel history_booking_rooms
+    await HistoryBookingRoom.destroy({
+      where: { booking_room_id: bookingRoomId },
+    });
 
     // Update days di tabel booking_room
     const [updatedBookingRoom] = await BookingRoom.update(
@@ -249,19 +253,30 @@ exports.updateBookingRoom = async (req, res) => {
       });
     }
 
+    // Tambahkan entri baru di tabel history_booking_rooms
+    await HistoryBookingRoom.create({
+      booking_room_id: bookingRoomId,
+      room_id: bookingRoom.room_id,
+      days: days,
+      date: selectedDate,
+      changed_at: new Date(), // Timestamp perubahan saat ini
+    });
+
     res.status(200).json({
       status: "success",
-      message: "Booking room dan tanggal berhasil diperbarui",
+      message: "Booking room, tanggal, dan riwayat berhasil diperbarui",
     });
   } catch (error) {
     console.error("Error updating booking room:", error); // Tambahkan log untuk debugging
     res.status(500).json({
       status: "error",
-      message: "Gagal memperbarui booking room dan tanggal",
+      message: "Gagal memperbarui booking room, tanggal, dan riwayat",
       error: error.message,
     });
   }
 };
+
+
 
 // Menghapus booking room
 exports.deleteBookingRoom = async (req, res) => {
