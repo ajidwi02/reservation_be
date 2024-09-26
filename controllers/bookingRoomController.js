@@ -81,6 +81,7 @@ exports.getBookingRoomById = async (req, res) => {
   }
 };
 
+
 // Mendapatkan booking room berdasarkan room_id
 exports.getBookingRoomByRoomId = async (req, res) => {
   const roomId = req.params.id; // Ambil room_id dari parameter
