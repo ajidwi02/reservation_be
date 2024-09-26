@@ -2,7 +2,7 @@ const BookingRoom = require("../models/bookingRoom");
 const Booking = require("../models/booking");
 const Room = require("../models/room");
 const Building = require("../models/building"); // Tambahkan import Building
-
+const HistoryBookingRoom = require('../models/historyBR');
 // Mendapatkan semua booking rooms
 exports.getAllBookingRooms = async (req, res) => {
   try {
@@ -174,9 +174,18 @@ exports.createBookingRoom = async (req, res) => {
     // Ubah status kamar menjadi booked (status_id = 3)
     await Room.update({ status_id: 3 }, { where: { room_id } });
 
+    // Tambahkan data ke tabel history_booking_rooms
+    await HistoryBookingRoom.create({
+      booking_room_id: bookingRoom.booking_room_id,
+      room_id: bookingRoom.room_id,
+      days: bookingRoom.days,
+      date: selectedDate, // Menggunakan tanggal yang sudah di-set sebelumnya
+      changed_at: new Date(), // Timestamp perubahan saat ini
+    });
+
     res.status(201).json({
       status: "success",
-      message: "Booking room berhasil dibuat dan ruangan ter-booked",
+      message: "Booking room berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
       data: bookingRoom,
     });
   } catch (err) {
@@ -187,6 +196,7 @@ exports.createBookingRoom = async (req, res) => {
     });
   }
 };
+
 
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
@@ -296,11 +306,11 @@ exports.deleteBookingRoom = async (req, res) => {
         where: { booking_id: bookingId },
       });
     }
-    
-    // Mengembalikan respons sukses
+
+    // Mengembalikan respons sukses, tanpa menyentuh data di history_booking_rooms
     res.status(200).json({
       status: "success",
-      message: "Booking room berhasil dihapus",
+      message: "Booking room berhasil dihapus, data history booking tetap ada",
     });
   } catch (error) {
     // Menangani kesalahan

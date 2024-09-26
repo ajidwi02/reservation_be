@@ -11,7 +11,7 @@ HistoryBookingRoom.init({
   },
   booking_room_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true, // Ubah menjadi true agar dapat menyimpan NULL
     references: {
       model: 'BookingRoom', // Model yang sesuai
       key: 'booking_room_id',
@@ -32,14 +32,6 @@ HistoryBookingRoom.init({
   date: {
     type: DataTypes.DATE,
     allowNull: false,
-  },
-  status_id: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'RoomStatus', // Model yang sesuai
-      key: 'status_id',
-    },
   },
   changed_at: {
     type: DataTypes.DATE,

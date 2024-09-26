@@ -46,14 +46,13 @@ exports.getHistoryById = async (req, res) => {
 
 // Menambahkan riwayat booking room baru
 exports.createHistory = async (req, res) => {
-  const { booking_room_id, room_id, days, date, status_id } = req.body;
+  const { booking_room_id, room_id, days, date } = req.body; // status_id dihapus
   try {
     const newHistory = await HistoryBookingRoom.create({
       booking_room_id,
       room_id,
       days,
       date,
-      status_id,
     });
     res.status(201).json({
       status: 'success',
