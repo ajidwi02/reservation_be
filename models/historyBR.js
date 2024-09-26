@@ -1,6 +1,6 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-
+const Room = require('./room');
 class HistoryBookingRoom extends Model {}
 
 HistoryBookingRoom.init({
@@ -44,5 +44,6 @@ HistoryBookingRoom.init({
   tableName: 'history_booking_rooms',
   timestamps: false,
 });
+HistoryBookingRoom.belongsTo(Room, { foreignKey: 'room_id' });
 
 module.exports = HistoryBookingRoom;

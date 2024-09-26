@@ -1,15 +1,32 @@
 const HistoryBookingRoom = require('../models/historyBR');
+const { Room, Building } = require('../models'); // Sesuaikan path jika diperlukan
 
-// Mendapatkan semua riwayat booking room
 exports.getAllHistory = async (req, res) => {
   try {
-    const history = await HistoryBookingRoom.findAll();
+    const history = await HistoryBookingRoom.findAll({
+      include: [
+        {
+          model: Room,
+          attributes: ['room_number'],
+          include: [
+            {
+              model: Building,
+              attributes: ['name']
+            }
+          ]
+        }
+      ]
+    });
+
+    console.log('Data history:', JSON.stringify(history, null, 2)); // Log data yang diambil
+
     res.status(200).json({
       status: 'success',
       message: 'Data semua riwayat berhasil diambil.',
       data: history
     });
   } catch (error) {
+    console.error('Error fetching history:', error); // Log kesalahan
     res.status(500).json({
       status: 'error',
       message: 'Terjadi kesalahan saat mengambil data riwayat.',
@@ -17,6 +34,7 @@ exports.getAllHistory = async (req, res) => {
     });
   }
 };
+
 
 // Mendapatkan satu riwayat berdasarkan ID
 exports.getHistoryById = async (req, res) => {
