@@ -71,6 +71,7 @@ exports.login = async (req, res) => {
       { expiresIn: '720h' }
     );
 
+    
     // Kirimkan response dengan status message dan data yang mencakup username, email, dan token
     res.json({
       status: 'success',
