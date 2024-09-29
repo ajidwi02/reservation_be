@@ -81,6 +81,50 @@ exports.getBookingRoomById = async (req, res) => {
   }
 };
 
+
+// Mendapatkan booking room berdasarkan room_id
+exports.getBookingRoomByRoomId = async (req, res) => {
+  const roomId = req.params.id; // Ambil room_id dari parameter
+  try {
+    const bookingRoom = await BookingRoom.findOne({
+      where: { room_id: roomId }, // Mencari berdasarkan room_id
+      include: [
+        {
+          model: Booking,
+          attributes: ["booking_date"],
+        },
+        {
+          model: Room,
+          attributes: ["room_number"],
+          include: [
+            {
+              model: Building,
+              attributes: ["name"], // Include nama gedung
+            },
+          ],
+        },
+      ],
+    });
+    if (!bookingRoom) {
+      return res.status(404).json({
+        status: "error",
+        message: "Booking room tidak ditemukan",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      message: "Booking room berhasil diambil",
+      data: bookingRoom,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil booking room",
+      error: error.message,
+    });
+  }
+};
+
 // Membuat booking room baru
 exports.createBookingRoom = async (req, res) => {
   try {
