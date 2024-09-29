@@ -83,7 +83,7 @@ router.get("/booking-rooms", bookingRoomController.getAllBookingRooms);
  *         description: Booking room not found
  */
 router.get("/booking-rooms/:id", bookingRoomController.getBookingRoomById);
-
+router.get("/booking-rooms/room/:id", bookingRoomController.getBookingRoomByRoomId); // Route baru ini
 /**
  * @swagger
  * /booking-rooms:
