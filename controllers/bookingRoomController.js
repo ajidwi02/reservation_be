@@ -38,6 +38,7 @@ exports.getAllBookingRooms = async (req, res) => {
   }
 };
 
+
 // Mendapatkan booking room berdasarkan ID
 exports.getBookingRoomById = async (req, res) => {
   const bookingRoomId = req.params.id;
