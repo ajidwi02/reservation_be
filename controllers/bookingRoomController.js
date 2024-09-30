@@ -106,12 +106,7 @@ exports.getBookingRoomByRoomId = async (req, res) => {
         },
       ],
     });
-    if (!bookingRoom) {
-      return res.status(404).json({
-        status: "error",
-        message: "Booking room tidak ditemukan",
-      });
-    }
+
     res.status(200).json({
       status: "success",
       message: "Booking room berhasil diambil",
