@@ -2,7 +2,7 @@ const BookingRoom = require("../models/bookingRoom");
 const Booking = require("../models/booking");
 const Room = require("../models/room");
 const Building = require("../models/building"); // Tambahkan import Building
-const HistoryBookingRoom = require('../models/historyBR');
+const HistoryBookingRoom = require("../models/historyBR");
 // Mendapatkan semua booking rooms
 exports.getAllBookingRooms = async (req, res) => {
   try {
@@ -37,7 +37,6 @@ exports.getAllBookingRooms = async (req, res) => {
     });
   }
 };
-
 
 // Mendapatkan booking room berdasarkan ID
 exports.getBookingRoomById = async (req, res) => {
@@ -82,7 +81,6 @@ exports.getBookingRoomById = async (req, res) => {
   }
 };
 
-
 // Mendapatkan booking room berdasarkan room_id
 exports.getBookingRoomByRoomId = async (req, res) => {
   const roomId = req.params.id; // Ambil room_id dari parameter
@@ -107,11 +105,11 @@ exports.getBookingRoomByRoomId = async (req, res) => {
       ],
     });
     if (!bookingRoom) {
-      return ({
-        message: "Ruangan Dapat Digunakan",
+      return res.status(404).json({
+        status: "error",
+        message: "Booking room tidak ditemukan",
       });
     }
-    
     res.status(200).json({
       status: "success",
       message: "Booking room berhasil diambil",
@@ -187,7 +185,8 @@ exports.createBookingRoom = async (req, res) => {
 
     res.status(201).json({
       status: "success",
-      message: "Booking room berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
+      message:
+        "Booking room berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
       data: bookingRoom,
     });
   } catch (err) {
@@ -277,8 +276,6 @@ exports.updateBookingRoom = async (req, res) => {
   }
 };
 
-
-
 // Menghapus booking room
 exports.deleteBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
@@ -338,4 +335,3 @@ exports.deleteBookingRoom = async (req, res) => {
     });
   }
 };
-
