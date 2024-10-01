@@ -106,7 +106,13 @@ exports.getBookingRoomByRoomId = async (req, res) => {
         },
       ],
     });
-
+    if (!bookingRoom) {
+      return ({
+        status: "warning",
+        message: "Ruangan Dapat Digunakan",
+      });
+    }
+    
     res.status(200).json({
       status: "success",
       message: "Booking room berhasil diambil",
