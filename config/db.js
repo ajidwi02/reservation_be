@@ -1,17 +1,19 @@
 // config/db.js
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require("sequelize");
 
-const sequelize = new Sequelize('reservation_db', 'root', '', {
-  host: 'localhost',
-  dialect: 'mysql'
+const sequelize = new Sequelize("reservation_db", "root", "", {
+  host: "localhost",
+  dialect: "mysql",
+  logging: false,
 });
 
-sequelize.authenticate()
+sequelize
+  .authenticate()
   .then(() => {
-    console.log('Koneksi ke database berhasil.');
+    console.log("Koneksi ke database berhasil.");
   })
-  .catch(err => {
-    console.error('Gagal terhubung ke database:', err);
+  .catch((err) => {
+    console.error("Gagal terhubung ke database:", err);
   });
 
 module.exports = sequelize;
