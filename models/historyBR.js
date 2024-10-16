@@ -1,6 +1,7 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const Room = require('./room');
+
 class HistoryBookingRoom extends Model {}
 
 HistoryBookingRoom.init({
@@ -29,7 +30,11 @@ HistoryBookingRoom.init({
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  date: {
+  start_date: { // Kolom baru untuk menyimpan tanggal mulai
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  end_date: { // Kolom baru untuk menyimpan tanggal akhir
     type: DataTypes.DATE,
     allowNull: false,
   },
@@ -44,6 +49,7 @@ HistoryBookingRoom.init({
   tableName: 'history_booking_rooms',
   timestamps: false,
 });
+
 HistoryBookingRoom.belongsTo(Room, { foreignKey: 'room_id' });
 
 module.exports = HistoryBookingRoom;

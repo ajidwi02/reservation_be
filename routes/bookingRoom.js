@@ -21,4 +21,6 @@ router.put("/booking-rooms/:id", authMiddleware, bookingRoomController.updateBoo
 // Menghapus booking room (memerlukan autentikasi)
 router.delete("/booking-rooms/:id", authMiddleware, bookingRoomController.deleteBookingRoom);
 
+router.get("/booking-rooms/cektanggal/:id", bookingRoomController.getBookedDatesByRoomId);
+
 module.exports = router;

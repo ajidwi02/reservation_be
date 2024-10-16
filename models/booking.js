@@ -1,4 +1,3 @@
-// models/booking.js
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
@@ -11,9 +10,13 @@ Booking.init(
       primaryKey: true,
       autoIncrement: true,
     },
-    booking_date: {
+    start_date: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
+      allowNull: false,
+    },
+    end_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
     },
   },
   {

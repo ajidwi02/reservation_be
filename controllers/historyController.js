@@ -3,11 +3,21 @@ const { Room, Building } = require('../models'); // Sesuaikan path jika diperluk
 
 exports.getAllHistory = async (req, res) => {
   try {
+    // Ambil parameter room_number dari query params
+    const { room_number } = req.query;
+
+    // Buat filter untuk room_number jika ada
+    let roomFilter = {};
+    if (room_number) {
+      roomFilter.room_number = room_number;
+    }
+
     const history = await HistoryBookingRoom.findAll({
       include: [
         {
           model: Room,
           attributes: ['room_number'],
+          where: roomFilter, // Tambahkan filter di sini
           include: [
             {
               model: Building,
@@ -17,8 +27,6 @@ exports.getAllHistory = async (req, res) => {
         }
       ]
     });
-
-    console.log('Data history:', JSON.stringify(history, null, 2)); // Log data yang diambil
 
     res.status(200).json({
       status: 'success',
@@ -34,6 +42,7 @@ exports.getAllHistory = async (req, res) => {
     });
   }
 };
+
 
 
 // Mendapatkan satu riwayat berdasarkan ID
@@ -64,14 +73,18 @@ exports.getHistoryById = async (req, res) => {
 
 // Menambahkan riwayat booking room baru
 exports.createHistory = async (req, res) => {
-  const { booking_room_id, room_id, days, date } = req.body; // status_id dihapus
+  const { booking_room_id, room_id, days, start_date, end_date } = req.body; // Mengganti 'date' dengan 'start_date' dan 'end_date'
+  
   try {
     const newHistory = await HistoryBookingRoom.create({
       booking_room_id,
       room_id,
       days,
-      date,
+      start_date, // Menggunakan start_date yang diterima dari permintaan
+      end_date,   // Menggunakan end_date yang diterima dari permintaan
+      changed_at: new Date() // Menambahkan timestamp perubahan saat ini
     });
+
     res.status(201).json({
       status: 'success',
       message: 'Riwayat baru berhasil ditambahkan.',
@@ -85,6 +98,7 @@ exports.createHistory = async (req, res) => {
     });
   }
 };
+
 
 // Menghapus riwayat berdasarkan ID
 exports.deleteHistory = async (req, res) => {
