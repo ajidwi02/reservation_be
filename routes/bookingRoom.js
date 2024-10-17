@@ -185,4 +185,6 @@ router.delete(
   bookingRoomController.deleteBookingRoom
 );
 
+router.get("/booking-rooms/cektanggal/:id", bookingRoomController.getBookedDatesByRoomId);
+
 module.exports = router;

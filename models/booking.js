@@ -1,24 +1,27 @@
 // models/booking.js
-const { Model, DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../config/db");
 
 class Booking extends Model {}
 
-Booking.init({
-  booking_id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
+Booking.init(
+  {
+    booking_id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    booking_date: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
   },
-  booking_date: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW, 
-  },
-}, {
-  sequelize,
-  modelName: 'Booking',
-  tableName: 'booking',
-  timestamps: false,
-});
+  {
+    sequelize,
+    modelName: "Booking",
+    tableName: "booking",
+    timestamps: false,
+  }
+);
 
 module.exports = Booking;

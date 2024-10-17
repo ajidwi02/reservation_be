@@ -1,0 +1,55 @@
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../config/db');
+const Room = require('./room');
+
+class HistoryBookingRoom extends Model {}
+
+HistoryBookingRoom.init({
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  booking_room_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Ubah menjadi true agar dapat menyimpan NULL
+    references: {
+      model: 'BookingRoom', // Model yang sesuai
+      key: 'booking_room_id',
+    },
+  },
+  room_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Room', // Model yang sesuai
+      key: 'room_id',
+    },
+  },
+  days: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  start_date: { // Kolom baru untuk menyimpan tanggal mulai
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  end_date: { // Kolom baru untuk menyimpan tanggal akhir
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  changed_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    allowNull: true,
+  },
+}, {
+  sequelize,
+  modelName: 'HistoryBookingRoom',
+  tableName: 'history_booking_rooms',
+  timestamps: false,
+});
+
+HistoryBookingRoom.belongsTo(Room, { foreignKey: 'room_id' });
+
+module.exports = HistoryBookingRoom;
