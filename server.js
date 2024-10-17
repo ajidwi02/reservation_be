@@ -13,6 +13,7 @@ const userRoutes = require("./routes/userRoute");
 const authMiddleware = require("./middleware/authMiddleware");
 const adminMiddleware = require("./middleware/adminMiddleware");
 const historyRoutes = require("./routes/historyRoute");
+const detailServiceRoutes = require('./routes/detailServiceRoutes');
 const { Room, BookingRoom, Booking } = require("./models");
 const { Op, Sequelize } = require("sequelize");
 const cron = require("node-cron");
@@ -37,6 +38,7 @@ app.use("/api", roomTypeRoutes);
 app.use("/api", bookingRoomRoutes);
 app.use("/api", userRoutes);
 app.use("/api", historyRoutes);
+app.use("/api", detailServiceRoutes);
 app.use("/api/auth", authRoutes);
 
 app.get("/api/admin", [authMiddleware, adminMiddleware], (req, res) => {
