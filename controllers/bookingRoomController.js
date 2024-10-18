@@ -4,13 +4,28 @@ const Room = require("../models/room");
 const Building = require("../models/building"); // Tambahkan import Building
 const HistoryBookingRoom = require("../models/historyBR");
 // Mendapatkan semua booking rooms
+const { Op } = require("sequelize");
+
 exports.getAllBookingRooms = async (req, res) => {
+  const { page = 1, limit = 5, searchTerm } = req.query;
+
+  const offset = (page - 1) * limit;
+  const searchQuery = searchTerm
+    ? {
+        [Op.or]: [
+          { '$Room.room_number$': { [Op.like]: `%${searchTerm}%` } },
+          { '$Room.Building.name$': { [Op.like]: `%${searchTerm}%` } }
+        ]
+      }
+    : {};
+
   try {
-    const bookingRooms = await BookingRoom.findAll({
+    const { count, rows } = await BookingRoom.findAndCountAll({
+      where: searchQuery,
       include: [
         {
           model: Booking,
-          attributes: ["start_date", "end_date"], // Mengambil start_date dan end_date
+          attributes: ["start_date", "end_date"],
         },
         {
           model: Room,
@@ -18,16 +33,22 @@ exports.getAllBookingRooms = async (req, res) => {
           include: [
             {
               model: Building,
-              attributes: ["name"], // Include nama gedung
+              attributes: ["name"],
             },
           ],
         },
       ],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
     });
+
     res.status(200).json({
       status: "success",
       message: "Booking rooms berhasil diambil",
-      data: bookingRooms,
+      data: rows,
+      totalItems: count,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(count / limit),
     });
   } catch (error) {
     res.status(500).json({
@@ -37,6 +58,7 @@ exports.getAllBookingRooms = async (req, res) => {
     });
   }
 };
+
 
 // Mendapatkan booking room berdasarkan ID
 exports.getBookingRoomById = async (req, res) => {
@@ -374,8 +396,9 @@ exports.deleteBookingRoom = async (req, res) => {
       });
     }
 
-    // Ambil booking_id dari booking room yang ditemukan
+    // Ambil booking_id dan room_id dari booking room yang ditemukan
     const bookingId = bookingRoom.booking_id;
+    const roomId = bookingRoom.room_id; // Ambil room_id terkait
 
     // Hapus booking room berdasarkan ID
     const deleted = await BookingRoom.destroy({
@@ -402,10 +425,16 @@ exports.deleteBookingRoom = async (req, res) => {
       });
     }
 
+    // Ubah status room menjadi 1 (menandakan tersedia)
+    await Room.update(
+      { status_id: 1 }, // Update status room menjadi 1
+      { where: { room_id: roomId } } // Berdasarkan room_id terkait
+    );
+
     // Mengembalikan respons sukses, tanpa menyentuh data di history_booking_rooms
     res.status(200).json({
       status: "success",
-      message: "Booking room berhasil dihapus, data history booking tetap ada",
+      message: "Booking room berhasil dihapus, status room diperbarui menjadi 1",
     });
   } catch (error) {
     // Menangani kesalahan
@@ -416,3 +445,4 @@ exports.deleteBookingRoom = async (req, res) => {
     });
   }
 };
+

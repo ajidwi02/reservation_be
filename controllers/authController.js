@@ -52,7 +52,7 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ 
         status: 'error',
-        message: 'Invalid credentials' 
+        message: 'Email atau Password salah' 
       });
     }
 
