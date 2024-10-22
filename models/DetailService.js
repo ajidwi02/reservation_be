@@ -18,10 +18,18 @@ const DetailService = sequelize.define('DetailService', {
   harga: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    validate: {
+      isInt: true,
+      min: 0, // Pastikan harga tidak negatif
+    },
   },
   rating: {
     type: DataTypes.DECIMAL(3, 1),
     allowNull: true,
+    validate: {
+      min: 0,
+      max: 5, // Misalkan rating dibatasi antara 0 dan 5
+    },
   },
   foto: {
     type: DataTypes.STRING(255),
@@ -30,10 +38,10 @@ const DetailService = sequelize.define('DetailService', {
   jumlah_kamar: {
     type: DataTypes.INTEGER,
     allowNull: true,
-  }
+  },
 }, {
   tableName: 'detail_service',
-  timestamps: false,
+  timestamps: false, // Menambahkan timestamps
 });
 
 module.exports = DetailService;

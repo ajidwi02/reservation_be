@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const path = require("path");
 const roomRoutes = require("./routes/room");
 const buildingRoutes = require("./routes/building");
 const bookingRoutes = require("./routes/booking");
@@ -13,7 +14,7 @@ const userRoutes = require("./routes/userRoute");
 const authMiddleware = require("./middleware/authMiddleware");
 const adminMiddleware = require("./middleware/adminMiddleware");
 const historyRoutes = require("./routes/historyRoute");
-const detailServiceRoutes = require('./routes/detailServiceRoutes');
+const detailServiceRoutes = require("./routes/detailServiceRoutes");
 const { Room, BookingRoom, Booking } = require("./models");
 const { Op, Sequelize } = require("sequelize");
 const cron = require("node-cron");
@@ -23,6 +24,12 @@ const app = express();
 // Konfigurasi CORS
 app.use(cors({ origin: "http://localhost:3001" }));
 app.use(bodyParser.json());
+
+// Menambahkan middleware untuk parsing URL-encoded data
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Middleware untuk folder statis 'uploads' agar bisa diakses secara publik
+app.use("/uploads/foto", express.static(path.join(__dirname, "uploads/foto")));
 
 app.use("/api", roomRoutes);
 app.use("/api", buildingRoutes);
