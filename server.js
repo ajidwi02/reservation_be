@@ -191,7 +191,7 @@ cron.schedule("30 22 * * *", () => {
 });
 
 // Jalankan fungsi setiap 8 jam
-cron.schedule("0 */8 * * *", () => {
+cron.schedule("0 */4 * * *", () => {
   console.log("Menjalankan update status kamar...");
   updateRoomStatus();
 });

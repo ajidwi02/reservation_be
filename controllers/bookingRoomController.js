@@ -13,9 +13,9 @@ exports.getAllBookingRooms = async (req, res) => {
   const searchQuery = searchTerm
     ? {
         [Op.or]: [
-          { '$Room.room_number$': { [Op.like]: `%${searchTerm}%` } },
-          { '$Room.Building.name$': { [Op.like]: `%${searchTerm}%` } }
-        ]
+          { "$Room.room_number$": { [Op.like]: `%${searchTerm}%` } },
+          { "$Room.Building.name$": { [Op.like]: `%${searchTerm}%` } },
+        ],
       }
     : {};
 
@@ -58,7 +58,6 @@ exports.getAllBookingRooms = async (req, res) => {
     });
   }
 };
-
 
 // Mendapatkan booking room berdasarkan ID
 exports.getBookingRoomById = async (req, res) => {
@@ -162,7 +161,7 @@ exports.getBookedDatesByRoomId = async (req, res) => {
       ],
     });
 
-    const bookedDates = bookings.map(booking => {
+    const bookedDates = bookings.map((booking) => {
       return {
         start_date: booking.Booking.start_date,
         end_date: booking.Booking.end_date,
@@ -182,7 +181,6 @@ exports.getBookedDatesByRoomId = async (req, res) => {
     });
   }
 };
-
 
 // Membuat booking room baru
 exports.createBookingRoom = async (req, res) => {
@@ -210,9 +208,9 @@ exports.createBookingRoom = async (req, res) => {
     }
 
     // Set jam ke 08:00 untuk start date dan 16:00 untuk end date
-    startDate.setHours(8, 0, 0, 0);  // Set jam lokal ke 08:00
-    endDate.setHours(16, 0, 0, 0);   // Set jam lokal ke 16:00
-    
+    startDate.setHours(8, 0, 0, 0); // Set jam lokal ke 08:00
+    endDate.setHours(16, 0, 0, 0); // Set jam lokal ke 16:00
+
     // Validasi objek Date
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({
@@ -283,21 +281,22 @@ exports.createBookingRoom = async (req, res) => {
   }
 };
 
-
-
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
   let { start_date, end_date } = req.body;
 
   // Validasi tanggal
-  const today = new Date().setHours(0, 0, 0); // Reset waktu ke awal hari
   let startDate = new Date(start_date);
   let endDate = new Date(end_date);
 
   // Set jam untuk start_date ke 07:00 dan end_date ke 16:00
-  startDate.setHours(7, 0, 0, 0);  // Set start date ke jam 07:00
-  endDate.setHours(16, 0, 0, 0);    // Set end date ke jam 16:00
+  startDate.setHours(7, 0, 0, 0); // Set start date ke jam 07:00
+  endDate.setHours(16, 0, 0, 0); // Set end date ke jam 16:00
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset jam ke awal hari
+
+  // Validasi jika start_date dan end_date kurang dari hari ini
   if (startDate < today || endDate < today) {
     return res.status(400).json({
       status: "error",
@@ -305,6 +304,7 @@ exports.updateBookingRoom = async (req, res) => {
     });
   }
 
+  // Validasi jika start_date lebih besar dari end_date
   if (startDate > endDate) {
     return res.status(400).json({
       status: "error",
@@ -364,20 +364,39 @@ exports.updateBookingRoom = async (req, res) => {
       changed_at: new Date(), // Timestamp perubahan saat ini
     });
 
+    // Set jam startDate dan today ke awal hari untuk perbandingan yang tepat
+    startDate.setHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+    today.setHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+
+    // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
+    // Perbandingan status_id
+    let newStatusId;
+    if (new Date(start_date).setHours(0, 0, 0, 0) === today.getTime()) {
+      newStatusId = 3; // Ganti status_id ke 3 jika start_date adalah hari ini
+    } else {
+      newStatusId = 1; // Ganti status_id ke 1 jika start_date bukan hari ini
+    }
+
+    await Room.update(
+      { status_id: newStatusId },
+      { where: { room_id: bookingRoom.room_id } }
+    );
+
     res.status(200).json({
       status: "success",
-      message: "Booking room, tanggal, dan riwayat berhasil diperbarui",
+      message:
+        "Booking room, tanggal, status kamar, dan riwayat berhasil diperbarui",
     });
   } catch (error) {
     console.error("Error updating booking room:", error); // Tambahkan log untuk debugging
     res.status(500).json({
       status: "error",
-      message: "Gagal memperbarui booking room, tanggal, dan riwayat",
+      message:
+        "Gagal memperbarui booking room, tanggal, status kamar, dan riwayat",
       error: error.message,
     });
   }
 };
-
 
 // Menghapus booking room
 exports.deleteBookingRoom = async (req, res) => {
@@ -434,7 +453,8 @@ exports.deleteBookingRoom = async (req, res) => {
     // Mengembalikan respons sukses, tanpa menyentuh data di history_booking_rooms
     res.status(200).json({
       status: "success",
-      message: "Booking room berhasil dihapus, status room diperbarui menjadi 1",
+      message:
+        "Booking room berhasil dihapus, status room diperbarui menjadi 1",
     });
   } catch (error) {
     // Menangani kesalahan
@@ -445,4 +465,3 @@ exports.deleteBookingRoom = async (req, res) => {
     });
   }
 };
-
