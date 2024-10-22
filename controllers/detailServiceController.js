@@ -4,7 +4,8 @@ const express = require("express");
 const DetailService = require("../models/DetailService");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs"); // Import fs untuk fs.existsSync
+const fsPromises = require("fs").promises; // Import fs/promises untuk operasi berbasis promises
 
 const app = express();
 const BASE_URL = process.env.BASE_URL;
@@ -30,6 +31,16 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+// Fungsi untuk menghapus file
+const deleteFile = async (filePath) => {
+  try {
+    await fsPromises.unlink(filePath);
+    console.log("File berhasil dihapus:", filePath);
+  } catch (err) {
+    console.error("Gagal menghapus file:", err);
+  }
+};
 
 // GET: Ambil semua detail service
 exports.getAll = async (req, res) => {
@@ -124,13 +135,7 @@ exports.update = [
 
           // Cek apakah file lama ada sebelum mencoba menghapusnya
           if (fs.existsSync(oldPhotoPath)) {
-            fs.unlink(oldPhotoPath, (err) => {
-              if (err) {
-                console.error("Gagal menghapus file:", err); // Log error
-              } else {
-                console.log("File berhasil dihapus:", oldPhotoPath); // Log sukses
-              }
-            });
+            await deleteFile(oldPhotoPath);
             // Update foto dengan foto baru
             detailService.foto = `${BASE_URL}/uploads/foto/${req.file.filename}`;
           } else {
@@ -175,6 +180,11 @@ exports.delete = async (req, res) => {
     const detailService = await DetailService.findByPk(id);
 
     if (detailService) {
+      // Hapus file gambar terkait jika ada
+      const oldPhotoFileName = detailService.foto.split("/").pop();
+      const oldPhotoPath = path.join(uploadPath, oldPhotoFileName);
+      await deleteFile(oldPhotoPath); // Hapus file foto jika ada
+
       await detailService.destroy();
       res.status(200).json({
         status: "sukses",
