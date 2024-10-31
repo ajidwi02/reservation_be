@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage }).array("foto", 3); // Mengizinkan hingga 3 file
 
 // Fungsi untuk menghapus file
 const deleteFile = async (filePath) => {
@@ -87,23 +87,23 @@ exports.getById = async (req, res) => {
 };
 
 // POST: Tambah detail service baru dengan foto
+// POST: Add new detail service with photos
 exports.create = [
-  upload.single("foto"),
+  upload, // multer handles file uploads
   async (req, res) => {
     try {
       const { nama, deskripsi, harga, rating, jumlah_kamar } = req.body;
-      const foto = req.file
-        ? `${BASE_URL}/uploads/foto/${req.file.filename}`
-        : null;
+      const fotos = req.files.map(file => `${BASE_URL}/uploads/foto/${file.filename}`); // Create URLs for each uploaded photo
 
       const newDetailService = await DetailService.create({
         nama,
         deskripsi,
         harga,
         rating,
-        foto,
+        foto: fotos, // Store as an array
         jumlah_kamar,
       });
+
       res.status(201).json({
         status: "sukses",
         message: "Detail service berhasil dibuat",
@@ -119,8 +119,9 @@ exports.create = [
   },
 ];
 
+// PUT: Update detail service
 exports.update = [
-  upload.single("foto"),
+  upload, // Handle multiple file uploads
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -128,28 +129,31 @@ exports.update = [
       const detailService = await DetailService.findByPk(id);
 
       if (detailService) {
-        // Pastikan foto lama ada dan bukan direktori
-        if (req.file) {
-          const oldPhotoFileName = detailService.foto.split("/").pop();
-          const oldPhotoPath = path.join(uploadPath, oldPhotoFileName);
+        let oldPhotos = detailService.foto || []; // Initialize with existing photos
 
-          // Cek apakah file lama ada sebelum mencoba menghapusnya
-          if (fs.existsSync(oldPhotoPath)) {
-            await deleteFile(oldPhotoPath);
-            // Update foto dengan foto baru
-            detailService.foto = `${BASE_URL}/uploads/foto/${req.file.filename}`;
-          } else {
-            console.warn(
-              `File lama tidak ditemukan untuk dihapus: ${oldPhotoPath}`
-            );
+        if (req.files) {
+          const newPhotos = req.files.map(file => `${BASE_URL}/uploads/foto/${file.filename}`);
+          detailService.foto = [...oldPhotos, ...newPhotos]; // Combine old and new photos
+          
+          // Optionally: delete old photos if needed
+          for (const oldPhoto of oldPhotos) {
+            const oldPhotoFileName = oldPhoto.split("/").pop();
+            const oldPhotoPath = path.join(uploadPath, oldPhotoFileName);
+
+            // Check if old file exists before deleting
+            if (fs.existsSync(oldPhotoPath)) {
+              await deleteFile(oldPhotoPath);
+            }
           }
-        } else {
-          console.log(
-            "Tidak ada file baru yang diunggah, foto lama tetap digunakan."
-          );
         }
 
-        // Simpan perubahan detail service
+        // Update other fields
+        detailService.nama = nama;
+        detailService.deskripsi = deskripsi;
+        detailService.harga = harga;
+        detailService.rating = rating;
+        detailService.jumlah_kamar = jumlah_kamar;
+
         await detailService.save();
         res.status(200).json({
           status: "sukses",
@@ -163,7 +167,7 @@ exports.update = [
         });
       }
     } catch (error) {
-      console.error("Gagal memperbarui data:", error); // Log kesalahan
+      console.error("Gagal memperbarui data:", error);
       res.status(500).json({
         status: "error",
         message: "Gagal memperbarui data",

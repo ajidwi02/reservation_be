@@ -60,7 +60,6 @@ const updateRoomStatus = async () => {
 
     for (const booking of bookings) {
       const date = booking.start_date.toISOString().split("T")[0];
-      console.log(`Memperbarui status kamar untuk tanggal: ${date}`);
 
       const today = new Date().toISOString().split("T")[0];
 
