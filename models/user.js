@@ -7,6 +7,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: "mysql", // atau dialect yang Anda gunakan
     port: process.env.DB_PORT,
+    logging: false,
   }
 );
 const User = sequelize.define(

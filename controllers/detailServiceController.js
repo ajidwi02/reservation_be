@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage }).array("foto", 3); // Mengizinkan hingga 3 file
+const upload = multer({ storage: storage }).array("foto", 6); // Mengizinkan hingga 3 file
 
 // Fungsi untuk menghapus file
 const deleteFile = async (filePath) => {
@@ -129,25 +129,28 @@ exports.update = [
       const detailService = await DetailService.findByPk(id);
 
       if (detailService) {
-        let oldPhotos = detailService.foto || []; // Initialize with existing photos
+        // Ambil foto lama dari database sebagai array JSON atau inisialisasi sebagai array kosong jika tidak ada
+        let oldPhotos = Array.isArray(detailService.foto) ? detailService.foto : [];
 
+        // Jika ada file baru yang diunggah
         if (req.files) {
+          // Map file baru ke URL dan gabungkan dengan foto lama
           const newPhotos = req.files.map(file => `${BASE_URL}/uploads/foto/${file.filename}`);
-          detailService.foto = [...oldPhotos, ...newPhotos]; // Combine old and new photos
-          
-          // Optionally: delete old photos if needed
+          detailService.foto = [...oldPhotos, ...newPhotos]; // Gabungkan foto lama dan baru
+
+          // Hapus foto lama dari storage jika tidak lagi dibutuhkan
           for (const oldPhoto of oldPhotos) {
             const oldPhotoFileName = oldPhoto.split("/").pop();
             const oldPhotoPath = path.join(uploadPath, oldPhotoFileName);
 
-            // Check if old file exists before deleting
+            // Periksa apakah file lama masih ada sebelum dihapus
             if (fs.existsSync(oldPhotoPath)) {
               await deleteFile(oldPhotoPath);
             }
           }
         }
 
-        // Update other fields
+        // Update field lain
         detailService.nama = nama;
         detailService.deskripsi = deskripsi;
         detailService.harga = harga;
