@@ -219,6 +219,17 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
+    // Cek jika startDate kurang dari hari ini
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+
+    if (startDate < today) {
+      return res.status(400).json({
+        status: "error",
+        message: "Tidak bisa booking sebelum hari ini",
+      });
+    }
+
     // Hitung jumlah hari antara start_date dan end_date
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
@@ -248,11 +259,11 @@ exports.createBookingRoom = async (req, res) => {
 
     // Reset waktu startDate dan today ke awal hari
     startDate.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+    const todayH = new Date();
+    todayH.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
 
     // Ubah status kamar menjadi booked (status_id = 3) jika start_date adalah hari ini
-    if (startDate.getTime() === today.getTime()) {
+    if (startDate.getTime() === todayH.getTime()) {
       await Room.update({ status_id: 3 }, { where: { room_id } });
     }
 
