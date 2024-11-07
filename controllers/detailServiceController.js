@@ -36,7 +36,6 @@ const upload = multer({ storage: storage }).array("foto", 6); // Mengizinkan hin
 const deleteFile = async (filePath) => {
   try {
     await fsPromises.unlink(filePath);
-    console.log("File berhasil dihapus:", filePath);
   } catch (err) {
     console.error("Gagal menghapus file:", err);
   }
@@ -93,7 +92,9 @@ exports.create = [
   async (req, res) => {
     try {
       const { nama, deskripsi, harga, rating, jumlah_kamar } = req.body;
-      const fotos = req.files.map(file => `${BASE_URL}/uploads/foto/${file.filename}`); // Create URLs for each uploaded photo
+      const fotos = req.files.map(
+        (file) => `${BASE_URL}/uploads/foto/${file.filename}`
+      ); // Create URLs for each uploaded photo
 
       const newDetailService = await DetailService.create({
         nama,
@@ -126,38 +127,66 @@ exports.update = [
     try {
       const { id } = req.params;
       const { nama, deskripsi, harga, rating, jumlah_kamar } = req.body;
+
+      // Cari detail service berdasarkan ID
       const detailService = await DetailService.findByPk(id);
 
       if (detailService) {
-        // Ambil foto lama dari database sebagai array JSON atau inisialisasi sebagai array kosong jika tidak ada
-        let oldPhotos = Array.isArray(detailService.foto) ? detailService.foto : [];
+        // Ambil foto lama dari database (mungkin dalam format string JSON)
+        let oldPhotos = Array.isArray(detailService.foto)
+          ? detailService.foto // Jika sudah array, tidak perlu parsing
+          : JSON.parse(detailService.foto); // Jika berupa string JSON, parsing ke array
 
-        // Jika ada file baru yang diunggah
-        if (req.files) {
-          // Map file baru ke URL dan gabungkan dengan foto lama
-          const newPhotos = req.files.map(file => `${BASE_URL}/uploads/foto/${file.filename}`);
-          detailService.foto = [...oldPhotos, ...newPhotos]; // Gabungkan foto lama dan baru
+        // Jika tidak ada foto lama (oldPhotos kosong), kita akan upload foto baru
+        if (!oldPhotos || oldPhotos.length === 0) {
+          oldPhotos = []; // Pastikan oldPhotos tetap kosong jika tidak ada foto lama
+        }
 
-          // Hapus foto lama dari storage jika tidak lagi dibutuhkan
+        // 1. Hapus foto lama dari local storage (hapus yang sesuai dengan nama)
+        // Hanya hapus foto lama jika ada foto baru
+        if (req.files && req.files.length > 0) {
           for (const oldPhoto of oldPhotos) {
-            const oldPhotoFileName = oldPhoto.split("/").pop();
-            const oldPhotoPath = path.join(uploadPath, oldPhotoFileName);
+            // Ambil nama file dari URL (hanya nama file saja)
+            const oldPhotoFileName = oldPhoto.split("/").pop(); // Ambil nama file setelah /
+            const oldPhotoPath = path.join(uploadPath, oldPhotoFileName); // Gabungkan dengan path lokal
 
-            // Periksa apakah file lama masih ada sebelum dihapus
+            // Periksa apakah file lama masih ada dan perlu dihapus
             if (fs.existsSync(oldPhotoPath)) {
-              await deleteFile(oldPhotoPath);
+              await deleteFile(oldPhotoPath); // Pastikan penghapusan file berhasil
+            } else {
+              console.log(
+                "File lama tidak ditemukan, tidak dapat dihapus:",
+                oldPhotoPath
+              );
             }
           }
         }
 
-        // Update field lain
+        // 2. Jika ada file baru yang diunggah
+        if (req.files && req.files.length > 0) {
+          // Map file baru ke URL
+          const newPhotos = req.files.map(
+            (file) => `${BASE_URL}/uploads/foto/${file.filename}`
+          );
+
+          // Ganti foto lama dengan foto baru
+          detailService.foto = newPhotos;
+        }
+        // Jika tidak ada foto baru, pertahankan foto lama
+        else {
+          detailService.foto = oldPhotos; // Tidak mengubah foto jika tidak ada file baru
+        }
+
+        // 3. Update field lain
         detailService.nama = nama;
         detailService.deskripsi = deskripsi;
         detailService.harga = harga;
         detailService.rating = rating;
         detailService.jumlah_kamar = jumlah_kamar;
 
+        // Simpan perubahan di database
         await detailService.save();
+
         res.status(200).json({
           status: "sukses",
           message: "Detail service berhasil diperbarui",
