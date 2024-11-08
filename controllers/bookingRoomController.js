@@ -260,7 +260,6 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
-
     // Hitung jumlah hari antara start_date dan end_date
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
@@ -368,6 +367,34 @@ exports.updateBookingRoom = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Booking room tidak ditemukan",
+      });
+    }
+
+    // Cek tumpang tindih dengan booking lain
+    const overlappingBooking = await BookingRoom.findOne({
+      where: {
+        room_id: bookingRoom.room_id,
+        booking_room_id: { [Op.ne]: bookingRoomId }, // Tidak termasuk booking yang sedang di-update
+      },
+      include: [
+        {
+          model: Booking,
+          where: {
+            [Op.or]: [
+              {
+                start_date: { [Op.lte]: endDate },
+                end_date: { [Op.gte]: startDate },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    if (overlappingBooking) {
+      return res.status(400).json({
+        status: "error",
+        message: "Tanggal Sudah Dipesan",
       });
     }
 
