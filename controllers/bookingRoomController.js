@@ -230,6 +230,37 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
+    const existingBookingRoom = await BookingRoom.findOne({
+      where: {
+        room_id,
+      },
+      include: [
+        {
+          model: Booking,
+          where: {
+            [Op.or]: [
+              {
+                start_date: {
+                  [Op.lte]: endDate,
+                },
+                end_date: {
+                  [Op.gte]: startDate,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    if (existingBookingRoom) {
+      return res.status(400).json({
+        status: "error",
+        message: "Tanggal Sudah Dipesan",
+      });
+    }
+
+
     // Hitung jumlah hari antara start_date dan end_date
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
