@@ -23,4 +23,7 @@ router.delete("/booking-rooms/:id", authMiddleware, bookingRoomController.delete
 
 router.get("/booking-rooms/cektanggal/:id", bookingRoomController.getBookedDatesByRoomId);
 
+router.get("/booking-rooms/tanggalbr/:id", bookingRoomController.getDatesByBookingRoomId);
+
+
 module.exports = router;

@@ -1,7 +1,7 @@
 const BookingRoom = require("../models/bookingRoom");
 const Booking = require("../models/booking");
 const Room = require("../models/room");
-const Building = require("../models/building"); // Tambahkan import Building
+const Building = require("../models/building"); 
 const HistoryBookingRoom = require("../models/historyBR");
 // Mendapatkan semua booking rooms
 const { Op } = require("sequelize");
@@ -177,6 +177,68 @@ exports.getBookedDatesByRoomId = async (req, res) => {
     res.status(500).json({
       status: "error",
       message: "Gagal mengambil tanggal yang sudah dipesan",
+      error: error.message,
+    });
+  }
+};
+
+exports.getDatesByBookingRoomId = async (req, res) => {
+  const bookingRoomId = req.params.id;
+
+  try {
+    // Langkah 1: Ambil room_id dari booking_room berdasarkan booking_room_id
+    const bookingRoom = await BookingRoom.findOne({
+      where: { booking_room_id: bookingRoomId }, // Menggunakan booking_room_id untuk mendapatkan room_id
+    });
+
+    if (!bookingRoom) {
+      return res.status(404).json({
+        status: "error",
+        message: "Booking room tidak ditemukan",
+      });
+    }
+
+    const roomId = bookingRoom.room_id; // Dapatkan room_id dari booking_room
+
+    const bookings = await BookingRoom.findAll({
+      where: { room_id: roomId },
+      include: [
+        {
+          model: Booking,
+          attributes: ["start_date", "end_date"],
+        },
+      ],
+    });
+
+    const bookedDates = bookings.map((booking) => {
+      const start_date = booking.Booking.start_date;
+      const end_date = booking.Booking.end_date;
+
+      return {
+        start_date: start_date,
+        end_date: end_date,
+      };
+    });
+
+    // Jika tidak ada booking untuk room_id tersebut
+    if (bookings.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Tidak ada booking untuk room_id yang diberikan",
+      });
+    }
+
+    // Kirimkan response dengan seluruh tanggal yang ditemukan
+    res.status(200).json({
+      status: "success",
+      message: "Tanggal booking berhasil diambil",
+      data: bookedDates,
+    });
+  } catch (error) {
+    console.error("Error saat mengambil tanggal booking:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Gagal mengambil tanggal booking",
       error: error.message,
     });
   }
