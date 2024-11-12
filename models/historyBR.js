@@ -30,6 +30,10 @@ HistoryBookingRoom.init({
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  nomor_pesanan: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   start_date: { // Kolom baru untuk menyimpan tanggal mulai
     type: DataTypes.DATE,
     allowNull: false,

@@ -1,7 +1,7 @@
 const BookingRoom = require("../models/bookingRoom");
 const Booking = require("../models/booking");
 const Room = require("../models/room");
-const Building = require("../models/building"); 
+const Building = require("../models/building");
 const HistoryBookingRoom = require("../models/historyBR");
 // Mendapatkan semua booking rooms
 const { Op } = require("sequelize");
@@ -326,7 +326,10 @@ exports.createBookingRoom = async (req, res) => {
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
     // Cek status kamar berdasarkan room_id
-    const room = await Room.findOne({ where: { room_id } });
+    const room = await Room.findOne({
+      where: { room_id },
+      include: [{ model: Building, attributes: ["name"] }], // Pastikan Building dan nama diambil
+    });
 
     if (!room) {
       return res.status(404).json({
@@ -342,11 +345,36 @@ exports.createBookingRoom = async (req, res) => {
     });
     const booking_id = booking.booking_id;
 
+    const buildingMap = {
+      GedungA: "GAA",
+      GedungB: "GAB",
+      GedungC: "AC",
+    };
+
+    // Dapatkan building name sesuai dengan map, atau gunakan nama asli jika tidak ada di map
+    const buildingName =
+      buildingMap[room.Building.name.replace(/\s+/g, "")] ||
+      room.Building.name.replace(/\s+/g, "");
+
+    // console.log("Building Name:", buildingName);
+    const roomName = room.room_number.replace(/\s+/g, "");
+    // console.log("Building Name:", roomName);
+    // Ambil bagian hari, bulan, dan tahun dari startDate
+    const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
+    const month = String(startDate.getMonth() + 1).padStart(2, "0"); // Bulan mulai dari 0, jadi tambahkan 1
+    const year = startDate.getFullYear();
+
+    // Gabungkan menjadi format DDMMYYYY
+    const formattedDate = `${day}${month}${year}`;
+    const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
+    // console.log("Generated nomor_pesanan:", nomor_pesanan);
+
     // Buat booking room baru
     const bookingRoom = await BookingRoom.create({
       booking_id,
       room_id,
-      days, // Menggunakan nilai days yang dihitung
+      days,
+      nomor_pesanan,
     });
 
     // Reset waktu startDate dan today ke awal hari
@@ -360,10 +388,12 @@ exports.createBookingRoom = async (req, res) => {
     }
 
     // Tambahkan data ke tabel history_booking_rooms
+    // Tambahkan data ke tabel history_booking_rooms
     await HistoryBookingRoom.create({
       booking_room_id: bookingRoom.booking_room_id,
       room_id: bookingRoom.room_id,
       days: bookingRoom.days,
+      nomor_pesanan: bookingRoom.nomor_pesanan, // Tambahkan nomor_pesanan di sini
       start_date: startDate,
       end_date: endDate,
       changed_at: new Date(), // Timestamp perubahan saat ini
@@ -376,6 +406,7 @@ exports.createBookingRoom = async (req, res) => {
       data: bookingRoom,
     });
   } catch (err) {
+    console.error("Error:", err);
     res.status(500).json({
       status: "error",
       message: "Gagal membuat booking room",
@@ -422,7 +453,7 @@ exports.updateBookingRoom = async (req, res) => {
     // Cari booking_id terkait booking_room_id
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
-      include: [Booking],
+      include: [{ model: Booking }, { model: Room, include: [Building] }],
     });
 
     if (!bookingRoom) {
@@ -465,9 +496,21 @@ exports.updateBookingRoom = async (req, res) => {
       where: { booking_room_id: bookingRoomId },
     });
 
-    // Update days di tabel booking_room
+    // Buat nomor pesanan sesuai map building
+    const buildingMap = { GedungA: "GAA", GedungB: "GAB", GedungC: "AC" };
+    const buildingName =
+      buildingMap[bookingRoom.Room.Building.name.replace(/\s+/g, "")] ||
+      bookingRoom.Room.Building.name.replace(/\s+/g, "");
+    const roomName = bookingRoom.Room.room_number.replace(/\s+/g, "");
+    const day = String(startDate.getDate()).padStart(2, "0");
+    const month = String(startDate.getMonth() + 1).padStart(2, "0");
+    const year = startDate.getFullYear();
+    const formattedDate = `${day}${month}${year}`;
+    const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
+
+    // Update tabel BookingRoom
     const [updatedBookingRoom] = await BookingRoom.update(
-      { days }, // Menggunakan nilai days yang dihitung
+      { days, nomor_pesanan },
       { where: { booking_room_id: bookingRoomId } }
     );
 
@@ -486,10 +529,12 @@ exports.updateBookingRoom = async (req, res) => {
     }
 
     // Tambahkan entri baru di tabel history_booking_rooms
+    // Tambahkan entri baru di tabel history_booking_rooms
     await HistoryBookingRoom.create({
       booking_room_id: bookingRoomId,
       room_id: bookingRoom.room_id,
       days: days, // Menggunakan nilai days yang dihitung
+      nomor_pesanan: nomor_pesanan, // Tambahkan nomor_pesanan di sini
       start_date: startDate,
       end_date: endDate,
       changed_at: new Date(), // Timestamp perubahan saat ini
