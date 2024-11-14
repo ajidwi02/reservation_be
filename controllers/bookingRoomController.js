@@ -399,7 +399,12 @@ exports.createBookingRoom = async (req, res) => {
       await Room.update({ status_id: 3 }, { where: { room_id } });
     }
 
-    // Tambahkan data ke tabel history_booking_rooms
+    // if (room_id === 88) {
+    //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13] } });
+    // } else if (room_id === 89) {
+    //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13, 88] } });
+    // }
+
     // Tambahkan data ke tabel history_booking_rooms
     await HistoryBookingRoom.create({
       booking_room_id: bookingRoom.booking_room_id,
@@ -513,7 +518,18 @@ exports.updateBookingRoom = async (req, res) => {
     const buildingName =
       buildingMap[bookingRoom.Room.Building.name.replace(/\s+/g, "")] ||
       bookingRoom.Room.Building.name.replace(/\s+/g, "");
-    const roomName = bookingRoom.Room.room_number.replace(/\s+/g, "");
+    const roomNameMap = {
+      "R.Transit": "RT",
+      Lapangan: "L",
+      RRKecilA: "RRKA",
+      RRKecilB: "RRKB",
+      RRBesarC: "RRBC",
+      RRBesarAB: "RRBAB",
+    };
+
+    const roomName =
+      roomNameMap[bookingRoom.Room.room_number.replace(/\s+/g, "")] ||
+      bookingRoom.Room.room_number.replace(/\s+/g, "");
     const day = String(startDate.getDate()).padStart(2, "0");
     const month = String(startDate.getMonth() + 1).padStart(2, "0");
     const year = startDate.getFullYear();
