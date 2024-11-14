@@ -356,8 +356,20 @@ exports.createBookingRoom = async (req, res) => {
       buildingMap[room.Building.name.replace(/\s+/g, "")] ||
       room.Building.name.replace(/\s+/g, "");
 
+    const roomNameMap = {
+      "R.Transit": "RT",
+      Lapangan: "L",
+      RRKecilA: "RRKA",
+      RRKecilB: "RRKB",
+      RRBesarC: "RRBC",
+      RRBesarAB: "RRBAB",
+    };
+
     // console.log("Building Name:", buildingName);
-    const roomName = room.room_number.replace(/\s+/g, "");
+    const roomName =
+      roomNameMap[room.room_number.replace(/\s+/g, "")] ||
+      room.room_number.replace(/\s+/g, "");
+
     // console.log("Building Name:", roomName);
     // Ambil bagian hari, bulan, dan tahun dari startDate
     const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
