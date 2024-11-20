@@ -1,41 +1,49 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db'); // Sesuaikan path sesuai konfigurasi Anda
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/db"); // Sesuaikan path sesuai konfigurasi Anda
+const RoomStatus = require("./roomStatus");
 
-const Room = sequelize.define('Room', {
-  room_id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
+const Room = sequelize.define(
+  "Room",
+  {
+    room_id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    room_number: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    building_id: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: "buildings", // Menggunakan plural untuk konsistensi
+        key: "building_id",
+      },
+    },
+    room_type_id: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: "room_types", // Menggunakan plural untuk konsistensi
+        key: "room_type_id",
+      },
+    },
+    status_id: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: "room_statuses", // Menggunakan plural untuk konsistensi
+        key: "status_id",
+      },
+    },
   },
-  room_number: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  building_id: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'buildings', // Menggunakan plural untuk konsistensi
-      key: 'building_id'
-    }
-  },
-  room_type_id: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'room_types', // Menggunakan plural untuk konsistensi
-      key: 'room_type_id'
-    }
-  },
-  status_id: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'room_statuses', // Menggunakan plural untuk konsistensi
-      key: 'status_id'
-    }
+  {
+    tableName: "room",
+    timestamps: false,
   }
-}, {
-  tableName: 'room',
-  timestamps: false
-});
+);
+
+Room.belongsTo(RoomStatus, { foreignKey: "status_id" });
+RoomStatus.hasMany(Room, { foreignKey: "status_id" });
 
 // Fungsi untuk mendapatkan semua ruangan dengan status
 Room.getAllByBuildingId = async (building_id) => {
@@ -86,7 +94,7 @@ Room.getById = async (id) => {
 
   try {
     const [results] = await sequelize.query(query, {
-      replacements: [id]
+      replacements: [id],
     });
     return results;
   } catch (error) {

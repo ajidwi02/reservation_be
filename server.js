@@ -48,9 +48,12 @@ app.get("/api/admin", [authMiddleware, adminMiddleware], (req, res) => {
 
 // Fungsi untuk memperbarui status kamar
 const updateRoomStatus = async () => {
-  console.log("Memperbarui status kamar...");
+  console.log("Memperbarui status kamar berdasarkan kondisi...");
 
   try {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Bagian kode yang sudah ada
     const bookings = await Booking.findAll({
       attributes: ["start_date"],
       group: ["start_date"],
@@ -61,9 +64,8 @@ const updateRoomStatus = async () => {
     for (const booking of bookings) {
       const date = booking.start_date.toISOString().split("T")[0];
 
-      const today = new Date().toISOString().split("T")[0];
-
       if (date === today) {
+        // Perbarui status_id ke 3 untuk kamar dengan start_date hari ini
         await Room.update(
           { status_id: 3 },
           {
@@ -78,6 +80,53 @@ const updateRoomStatus = async () => {
           }
         );
         hasUpdated = true;
+      }
+    }
+
+    // Logika tambahan untuk kondisi room_id
+    const todayBookings = await BookingRoom.findAll({
+      include: [
+        {
+          model: Booking,
+          where: Sequelize.where(
+            Sequelize.fn("DATE", Sequelize.col("start_date")),
+            today
+          ),
+          attributes: ["start_date"],
+        },
+      ],
+    });
+
+    for (const bookingRoom of todayBookings) {
+      const roomId = bookingRoom.room_id;
+
+      // Kondisi khusus
+      if (roomId === 88) {
+        // Update status_id ke 2
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [12, 13, 89] } } }
+        );
+        // Tambahan: Ubah status_id kamar terkait jadi 1 jika start_date hari ini
+        await Room.update({ status_id: 1 }, { where: { room_id: 88 } });
+      } else if ([12, 13].includes(roomId)) {
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [88, 89] } } }
+        );
+        await Room.update(
+          { status_id: 1 },
+          { where: { room_id: { [Op.in]: [12, 13] } } }
+        );
+      } else if (roomId === 14) {
+        await Room.update({ status_id: 2 }, { where: { room_id: 89 } });
+        await Room.update({ status_id: 1 }, { where: { room_id: 14 } });
+      } else if (roomId === 89) {
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
+        );
+        await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
       }
     }
 
@@ -100,16 +149,16 @@ const updateExpiredBookings = async () => {
   );
 
   try {
-    const today = new Date();
-    const todayString = today.toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
 
+    // Bagian kode yang sudah ada
     const expiredBookings = await Booking.findAll({
       attributes: ["booking_id"],
       where: {
         [Op.and]: [
           Sequelize.where(
             Sequelize.fn("DATE", Sequelize.col("end_date")),
-            todayString
+            today
           ),
         ],
       },
@@ -166,6 +215,49 @@ const updateExpiredBookings = async () => {
     });
 
     console.log("Data dari tabel booking berhasil dihapus.");
+
+    // Logika tambahan untuk kondisi room_id
+    for (const roomId of expiredRoomIdList) {
+      if (roomId === 88) {
+        const activeRooms = await BookingRoom.count({
+          where: { room_id: { [Op.in]: [12, 13] } },
+        });
+
+        // Jika tidak ada booking aktif untuk room_id 12 dan 13
+        if (activeRooms === 0) {
+          await Room.update(
+            { status_id: 1 },
+            { where: { room_id: { [Op.in]: [12, 13, 89] } } }
+          );
+        }
+      } else if ([12, 13].includes(roomId)) {
+        const activeRooms = await BookingRoom.count({
+          where: { room_id: { [Op.in]: [12, 13] } },
+        });
+
+        // Jika tidak ada booking aktif untuk room_id 12 atau 13
+        if (activeRooms === 0) {
+          await Room.update(
+            { status_id: 1 },
+            { where: { room_id: { [Op.in]: [88, 89] } } }
+          );
+        }
+      } else if (roomId === 14) {
+        await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
+      } else if (roomId === 89) {
+        const activeRooms = await BookingRoom.count({
+          where: { room_id: { [Op.in]: [12, 13, 14, 88] } },
+        });
+
+        // Jika tidak ada booking aktif untuk room_id terkait
+        if (activeRooms === 0) {
+          await Room.update(
+            { status_id: 1 },
+            { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
+          );
+        }
+      }
+    }
   } catch (error) {
     console.error("Error menghapus booking_room atau booking:", error);
   }
