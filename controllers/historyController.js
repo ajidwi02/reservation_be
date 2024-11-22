@@ -25,7 +25,8 @@ exports.getAllHistory = async (req, res) => {
             }
           ]
         }
-      ]
+      ],
+      order: [['changed_at', 'DESC']] // Mengurutkan berdasarkan kolom 'changed_at' secara descending
     });
 
     res.status(200).json({
@@ -42,6 +43,7 @@ exports.getAllHistory = async (req, res) => {
     });
   }
 };
+
 
 
 
