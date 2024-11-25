@@ -162,6 +162,16 @@ exports.update = [
           }
         }
 
+        if (rating < 0 || rating > 5) {
+          res
+            .status(400)
+            .json({
+              status: "error",
+              message: "Rating Tidak Bisa Melebihi 5 atau kurang dari 0",
+            });
+          return;
+        }
+
         // 2. Jika ada file baru yang diunggah
         if (req.files && req.files.length > 0) {
           // Map file baru ke URL

@@ -38,6 +38,7 @@ exports.getAllBookingRooms = async (req, res) => {
           ],
         },
       ],
+      order: [["booking_room_id", "DESC"]], // Menambahkan pengurutan berdasarkan booking_room_id secara descending
       limit: parseInt(limit),
       offset: parseInt(offset),
     });
