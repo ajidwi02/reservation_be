@@ -263,6 +263,147 @@ const updateExpiredBookings = async () => {
   }
 };
 
+const checkAndUpdateMissedBookings = async () => {
+  console.log("Memeriksa dan memperbarui status kamar yang terlewat...");
+
+  try {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Periksa dan perbarui kamar yang seharusnya mulai hari ini atau sebelumnya
+    const missedBookings = await Booking.findAll({
+      attributes: ["start_date"],
+      where: {
+        start_date: {
+          [Op.lte]: new Date(),
+        },
+      },
+      include: {
+        model: BookingRoom,
+        include: {
+          model: Room,
+          where: {
+            status_id: {
+              [Op.ne]: 3, // Tidak dalam status "booked"
+            },
+          },
+        },
+      },
+    });
+
+    for (const booking of missedBookings) {
+      const date = booking.start_date.toISOString().split("T")[0];
+      await Room.update(
+        { status_id: 3 },
+        {
+          where: {
+            room_id: {
+              [Op.in]: Sequelize.literal(`(SELECT br.room_id 
+                             FROM booking_room br
+                             INNER JOIN booking b ON br.booking_id = b.booking_id 
+                             WHERE DATE(b.start_date) <= '${date}')`),
+            },
+          },
+        }
+      );
+    }
+
+    // Logika tambahan untuk kondisi room_id
+    const todayBookings = await BookingRoom.findAll({
+      include: [
+        {
+          model: Booking,
+          where: Sequelize.where(
+            Sequelize.fn("DATE", Sequelize.col("start_date")),
+            today
+          ),
+          attributes: ["start_date"],
+        },
+      ],
+    });
+
+    for (const bookingRoom of todayBookings) {
+      const roomId = bookingRoom.room_id;
+
+      // Kondisi khusus
+      if (roomId === 88) {
+        // Update status_id ke 2
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [12, 13, 89] } } }
+        );
+        // Tambahan: Ubah status_id kamar terkait jadi 1 jika start_date hari ini
+        await Room.update({ status_id: 1 }, { where: { room_id: 88 } });
+      } else if ([12, 13].includes(roomId)) {
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [88, 89] } } }
+        );
+        await Room.update(
+          { status_id: 1 },
+          { where: { room_id: { [Op.in]: [12, 13] } } }
+        );
+      } else if (roomId === 14) {
+        await Room.update({ status_id: 2 }, { where: { room_id: 89 } });
+        await Room.update({ status_id: 1 }, { where: { room_id: 14 } });
+      } else if (roomId === 89) {
+        await Room.update(
+          { status_id: 2 },
+          { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
+        );
+        await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
+      }
+    }
+
+    // Periksa dan perbarui kamar yang seharusnya berakhir hari ini atau sebelumnya
+    const expiredBookings = await Booking.findAll({
+      attributes: ["booking_id"],
+      where: {
+        end_date: {
+          [Op.lte]: new Date(),
+        },
+      },
+      include: {
+        model: BookingRoom,
+        include: {
+          model: Room,
+          where: {
+            status_id: {
+              [Op.eq]: 3, // Dalam status "booked"
+            },
+          },
+        },
+      },
+    });
+
+    for (const booking of expiredBookings) {
+      const date = booking.end_date.toISOString().split("T")[0];
+      await Room.update(
+        { status_id: 1 },
+        {
+          where: {
+            room_id: {
+              [Op.in]: Sequelize.literal(`(SELECT br.room_id 
+                             FROM booking_room br
+                             INNER JOIN booking b ON br.booking_id = b.booking_id 
+                             WHERE DATE(b.end_date) <= '${date}')`),
+            },
+          },
+        }
+      );
+    }
+
+    console.log("Status kamar yang terlewat berhasil diperbarui.");
+  } catch (error) {
+    console.error(
+      "Error memeriksa dan memperbarui status kamar yang terlewat:",
+      error
+    );
+  }
+};
+
+// Panggil fungsi saat server dimulai
+checkAndUpdateMissedBookings();
+
 // Menjalankan pada pukul 17:00
 cron.schedule("30 15 * * *", () => {
   console.log("Menjalankan update booking yang sudah kedaluwarsa...");
