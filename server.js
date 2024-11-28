@@ -271,7 +271,7 @@ const checkAndUpdateMissedBookings = async () => {
 
     // Periksa dan perbarui kamar yang seharusnya mulai hari ini atau sebelumnya
     const missedBookings = await Booking.findAll({
-      attributes: ["start_date"],
+      attributes: ["start_date", "booking_id"],
       where: {
         start_date: {
           [Op.lte]: new Date(),
@@ -291,20 +291,22 @@ const checkAndUpdateMissedBookings = async () => {
     });
 
     for (const booking of missedBookings) {
-      const date = booking.start_date.toISOString().split("T")[0];
-      await Room.update(
-        { status_id: 3 },
-        {
-          where: {
-            room_id: {
-              [Op.in]: Sequelize.literal(`(SELECT br.room_id 
-                             FROM booking_room br
-                             INNER JOIN booking b ON br.booking_id = b.booking_id 
-                             WHERE DATE(b.start_date) <= '${date}')`),
+      if (booking.start_date) {
+        const date = booking.start_date.toISOString().split("T")[0];
+        await Room.update(
+          { status_id: 3 },
+          {
+            where: {
+              room_id: {
+                [Op.in]: Sequelize.literal(`(SELECT br.room_id 
+                               FROM booking_room br
+                               INNER JOIN booking b ON br.booking_id = b.booking_id 
+                               WHERE DATE(b.start_date) <= '${date}')`),
+              },
             },
-          },
-        }
-      );
+          }
+        );
+      }
     }
 
     // Logika tambahan untuk kondisi room_id
@@ -356,7 +358,7 @@ const checkAndUpdateMissedBookings = async () => {
 
     // Periksa dan perbarui kamar yang seharusnya berakhir hari ini atau sebelumnya
     const expiredBookings = await Booking.findAll({
-      attributes: ["booking_id"],
+      attributes: ["end_date", "booking_id"],
       where: {
         end_date: {
           [Op.lte]: new Date(),
@@ -376,20 +378,37 @@ const checkAndUpdateMissedBookings = async () => {
     });
 
     for (const booking of expiredBookings) {
-      const date = booking.end_date.toISOString().split("T")[0];
-      await Room.update(
-        { status_id: 1 },
-        {
+      if (booking.end_date && booking.booking_id) {
+        const date = booking.end_date.toISOString().split("T")[0];
+        await Room.update(
+          { status_id: 1 },
+          {
+            where: {
+              room_id: {
+                [Op.in]: Sequelize.literal(`(SELECT br.room_id 
+                               FROM booking_room br
+                               INNER JOIN booking b ON br.booking_id = b.booking_id 
+                               WHERE DATE(b.end_date) <= '${date}')`),
+              },
+            },
+          }
+        );
+        // Hapus booking_room yang berkaitan
+        await BookingRoom.destroy({
           where: {
-            room_id: {
-              [Op.in]: Sequelize.literal(`(SELECT br.room_id 
-                             FROM booking_room br
-                             INNER JOIN booking b ON br.booking_id = b.booking_id 
-                             WHERE DATE(b.end_date) <= '${date}')`),
+            booking_room_id: {
+              [Op.in]: booking.BookingRooms.map((br) => br.booking_room_id),
             },
           },
-        }
-      );
+        });
+        // Hapus booking yang berkaitan
+        await Booking.destroy({ where: { booking_id: booking.booking_id } });
+      } else {
+        console.error(
+          "Booking ID or end date is undefined for booking:",
+          booking
+        );
+      }
     }
 
     console.log("Status kamar yang terlewat berhasil diperbarui.");
