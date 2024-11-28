@@ -138,7 +138,7 @@ const updateRoomStatus = async () => {
       console.log("Status kamar berhasil diperbarui.");
     }
   } catch (error) {
-    console.error("Error updating room status:", error);
+    console.error("Error saat update status ruangan:", error);
   }
 };
 
@@ -405,7 +405,7 @@ const checkAndUpdateMissedBookings = async () => {
         await Booking.destroy({ where: { booking_id: booking.booking_id } });
       } else {
         console.error(
-          "Booking ID or end date is undefined for booking:",
+          "ID pemesanan atau tenggat tanggal tidak ada untuk pemesanan:",
           booking
         );
       }
