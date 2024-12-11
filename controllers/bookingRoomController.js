@@ -3,50 +3,58 @@ const Booking = require("../models/booking");
 const Room = require("../models/room");
 const Building = require("../models/building");
 const HistoryBookingRoom = require("../models/historyBR");
+const BookingDetail = require("../models/bookingDetail");
 // Mendapatkan semua booking rooms
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 
 exports.getAllBookingRooms = async (req, res) => {
-  const { page = 1, limit = 5, searchTerm } = req.query;
+  const { page = 1, limit = 5 } = req.query;
 
   const offset = (page - 1) * limit;
-  const searchQuery = searchTerm
-    ? {
-        [Op.or]: [
-          { "$Room.room_number$": { [Op.like]: `%${searchTerm}%` } },
-          { "$Room.Building.name$": { [Op.like]: `%${searchTerm}%` } },
-        ],
-      }
-    : {};
 
   try {
     const { count, rows } = await BookingRoom.findAndCountAll({
-      where: searchQuery,
       include: [
         {
           model: Booking,
-          attributes: ["start_date", "end_date"],
+          attributes: ["start_date", "end_date"], // Hanya mengambil tanggal dari Booking
         },
         {
-          model: Room,
-          attributes: ["room_number"],
+          model: BookingDetail,
+          attributes: ["days"], // Mengambil kolom days dari BookingDetail
           include: [
             {
-              model: Building,
-              attributes: ["name"],
+              model: Room,
+              include: [
+                {
+                  model: Building,
+                  attributes: ["name"], // Mengambil nama dari Building
+                },
+              ],
             },
           ],
         },
       ],
-      order: [["booking_room_id", "DESC"]], // Menambahkan pengurutan berdasarkan booking_room_id secara descending
+      order: [["booking_room_id", "DESC"]],
       limit: parseInt(limit),
       offset: parseInt(offset),
+    });
+
+    // Format data untuk hanya mengembalikan yang diperlukan
+    const result = rows.map((bookingRoom) => {
+      return {
+        bookingRoomId: bookingRoom.booking_room_id,
+        startDate: bookingRoom.Booking.start_date,
+        endDate: bookingRoom.Booking.end_date,
+        days: bookingRoom.BookingDetails?.[0]?.days,
+        buildingName: bookingRoom.BookingDetails[0]?.Room?.Building?.name, // Mengambil nama gedung dari Room
+      };
     });
 
     res.status(200).json({
       status: "success",
       message: "Booking rooms berhasil diambil",
-      data: rows,
+      data: result,
       totalItems: count,
       currentPage: parseInt(page),
       totalPages: Math.ceil(count / limit),
@@ -150,18 +158,24 @@ exports.getBookingRoomByRoomId = async (req, res) => {
 
 // Mendapatkan tanggal yang sudah dipesan untuk ruangan tertentu
 exports.getBookedDatesByRoomId = async (req, res) => {
-  const roomId = req.params.id;
+  const roomId = req.params.id; // Mendapatkan room_id dari parameter
   try {
+    // Query untuk mendapatkan tanggal booking berdasarkan room_id
     const bookings = await BookingRoom.findAll({
-      where: { room_id: roomId },
       include: [
         {
-          model: Booking,
-          attributes: ["start_date", "end_date"],
+          model: Booking, // Relasi dengan tabel Booking
+          attributes: ["start_date", "end_date"], // Hanya mengambil tanggal
+        },
+        {
+          model: BookingDetail, // Relasi melalui BookingDetail
+          where: { room_id: roomId }, // Filter berdasarkan room_id
+          attributes: [], // Tidak mengambil kolom lain dari BookingDetail
         },
       ],
     });
 
+    // Mengambil start_date dan end_date dari hasil query
     const bookedDates = bookings.map((booking) => {
       return {
         start_date: booking.Booking.start_date,
@@ -169,12 +183,14 @@ exports.getBookedDatesByRoomId = async (req, res) => {
       };
     });
 
+    // Mengirimkan response
     res.status(200).json({
       status: "success",
       message: "Tanggal yang sudah dipesan berhasil diambil",
       data: bookedDates,
     });
   } catch (error) {
+    // Error handling
     res.status(500).json({
       status: "error",
       message: "Gagal mengambil tanggal yang sudah dipesan",
@@ -187,9 +203,15 @@ exports.getDatesByBookingRoomId = async (req, res) => {
   const bookingRoomId = req.params.id;
 
   try {
-    // Langkah 1: Ambil room_id dari booking_room berdasarkan booking_room_id
+    // Langkah 1: Ambil booking_id dari booking_room_id
     const bookingRoom = await BookingRoom.findOne({
-      where: { booking_room_id: bookingRoomId }, // Menggunakan booking_room_id untuk mendapatkan room_id
+      where: { booking_room_id: bookingRoomId },
+      include: [
+        {
+          model: Booking,
+          attributes: ["start_date", "end_date"], // Ambil tanggal dari tabel Booking
+        },
+      ],
     });
 
     if (!bookingRoom) {
@@ -199,33 +221,47 @@ exports.getDatesByBookingRoomId = async (req, res) => {
       });
     }
 
-    const roomId = bookingRoom.room_id; // Dapatkan room_id dari booking_room
+    // Langkah 2: Cari semua room_id terkait booking_room_id di tabel BookingDetail
+    const bookingDetails = await BookingDetail.findAll({
+      where: { booking_room_id: bookingRoomId },
+      attributes: ["room_id"], // Hanya ambil room_id
+    });
 
+    if (bookingDetails.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Tidak ada room_id yang terkait dengan booking_room_id",
+      });
+    }
+
+    // Ambil semua room_id dari hasil query
+    const roomIds = bookingDetails.map((detail) => detail.room_id);
+
+    // Langkah 3: Cari semua tanggal booking terkait room_id di tabel Booking
     const bookings = await BookingRoom.findAll({
-      where: { room_id: roomId },
       include: [
         {
           model: Booking,
-          attributes: ["start_date", "end_date"],
+          attributes: ["start_date", "end_date"], // Ambil tanggal dari tabel Booking
+        },
+        {
+          model: BookingDetail,
+          where: { room_id: roomIds }, // Filter dengan room_id
+          attributes: [], // Tidak mengambil kolom lain dari BookingDetail
         },
       ],
     });
 
-    const bookedDates = bookings.map((booking) => {
-      const start_date = booking.Booking.start_date;
-      const end_date = booking.Booking.end_date;
+    // Langkah 4: Ambil start_date dan end_date dari hasil query
+    const bookedDates = bookings.map((booking) => ({
+      start_date: booking.Booking.start_date,
+      end_date: booking.Booking.end_date,
+    }));
 
-      return {
-        start_date: start_date,
-        end_date: end_date,
-      };
-    });
-
-    // Jika tidak ada booking untuk room_id tersebut
-    if (bookings.length === 0) {
+    if (bookedDates.length === 0) {
       return res.status(404).json({
         status: "error",
-        message: "Tidak ada booking untuk room_id yang diberikan",
+        message: "Tidak ada booking untuk room_id terkait",
       });
     }
 
@@ -246,23 +282,227 @@ exports.getDatesByBookingRoomId = async (req, res) => {
 };
 
 // Membuat booking room baru
-exports.createBookingRoom = async (req, res) => {
-  try {
-    const { room_id, start_date, end_date } = req.body;
+// exports.createBookingRoom = async (req, res) => {
+//   try {
+//     const { room_id, start_date, end_date } = req.body;
 
-    // Validasi tanggal
-    if (!start_date || !end_date) {
+//     // Validasi tanggal
+//     if (!start_date || !end_date) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "Start date dan End date tidak boleh kosong",
+//       });
+//     }
+
+//     // Mengonversi tanggal ke objek Date
+//     const startDate = new Date(start_date);
+//     const endDate = new Date(end_date);
+
+//     // Validasi apakah startDate lebih besar dari endDate
+//     if (startDate > endDate) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "Start date tidak boleh lebih besar dari End date",
+//       });
+//     }
+
+//     // Set jam ke 08:00 untuk start date dan 16:00 untuk end date
+//     startDate.setHours(8, 0, 0, 0); // Set jam lokal ke 08:00
+//     endDate.setHours(16, 0, 0, 0); // Set jam lokal ke 16:00
+
+//     // Validasi objek Date
+//     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "Tanggal tidak valid",
+//       });
+//     }
+
+//     // Cek jika startDate kurang dari hari ini
+//     const today = new Date();
+//     today.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+
+//     if (startDate < today) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "Tidak bisa booking sebelum hari ini",
+//       });
+//     }
+
+//     const existingBookingRoom = await BookingDetail.findOne({
+//       where: {
+//         room_id,
+//       },
+//       include: [
+//         {
+//           model: Booking,
+//           where: {
+//             [Op.or]: [
+//               {
+//                 start_date: {
+//                   [Op.lte]: endDate,
+//                 },
+//                 end_date: {
+//                   [Op.gte]: startDate,
+//                 },
+//               },
+//             ],
+//           },
+//         },
+//       ],
+//     });
+
+//     if (existingBookingRoom) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: "Tanggal Sudah Dipesan",
+//       });
+//     }
+
+//     // Hitung jumlah hari antara start_date dan end_date
+//     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+//     // Cek status kamar berdasarkan room_id
+//     const room = await Room.findOne({
+//       where: { room_id },
+//       include: [{ model: Building, attributes: ["name"] }], // Pastikan Building dan nama diambil
+//     });
+
+//     if (!room) {
+//       return res.status(404).json({
+//         status: "error",
+//         message: "Ruangan tidak ditemukan",
+//       });
+//     }
+
+//     // Buat booking baru dengan start_date dan end_date
+//     const booking = await Booking.create({
+//       start_date: startDate,
+//       end_date: endDate,
+//     });
+//     const booking_id = booking.booking_id;
+
+//     const buildingMap = {
+//       GedungA: "GAA",
+//       GedungB: "GAB",
+//       GedungC: "AC",
+//     };
+
+//     // Dapatkan building name sesuai dengan map, atau gunakan nama asli jika tidak ada di map
+//     const buildingName =
+//       buildingMap[room.Building.name.replace(/\s+/g, "")] ||
+//       room.Building.name.replace(/\s+/g, "");
+
+//     const roomNameMap = {
+//       "R.Transit": "RT",
+//       Lapangan: "L",
+//       RRKecilA: "RRKA",
+//       RRKecilB: "RRKB",
+//       RRBesarC: "RRBC",
+//       RRBesarAB: "RRBAB",
+//     };
+
+//     // console.log("Building Name:", buildingName);
+//     const roomName =
+//       roomNameMap[room.room_number.replace(/\s+/g, "")] ||
+//       room.room_number.replace(/\s+/g, "");
+
+//     // console.log("Building Name:", roomName);
+//     // Ambil bagian hari, bulan, dan tahun dari startDate
+//     const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
+//     const month = String(startDate.getMonth() + 1).padStart(2, "0"); // Bulan mulai dari 0, jadi tambahkan 1
+//     const year = startDate.getFullYear();
+
+//     // Gabungkan menjadi format DDMMYYYY
+//     const formattedDate = `${day}${month}${year}`;
+//     const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
+//     // console.log("Generated nomor_pesanan:", nomor_pesanan);
+
+//     // Buat booking room baru
+//     const bookingRoom = await BookingRoom.create({
+//       booking_id,
+//       room_id,
+//       days,
+//       nomor_pesanan,
+//     });
+
+//     // Reset waktu startDate dan today ke awal hari
+//     startDate.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+//     const todayH = new Date();
+//     todayH.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+
+//     // Ubah status kamar menjadi booked (status_id = 3) jika start_date adalah hari ini
+//     if (startDate.getTime() === todayH.getTime()) {
+//       // Ubah status kamar yang dipesan menjadi booked (status_id = 3)
+//       await Room.update({ status_id: 3 }, { where: { room_id } });
+
+//       // Logika tambahan untuk kamar terkait
+//       const relatedRooms = [];
+//       if (room_id === 88) {
+//         relatedRooms.push(...[12, 13, 89]);
+//       } else if ([12, 13].includes(room_id)) {
+//         relatedRooms.push(...[88, 89]);
+//       } else if (room_id === 14) {
+//         relatedRooms.push(89);
+//       } else if (room_id === 89) {
+//         relatedRooms.push(...[12, 13, 14, 88]);
+//       }
+
+//       // Perbarui status kamar terkait jika ada
+//       if (relatedRooms.length > 0) {
+//         await Room.update(
+//           { status_id: 2 }, // Set status kamar terkait menjadi "dalam pemakaian" (status_id = 2)
+//           { where: { room_id: { [Op.in]: relatedRooms } } }
+//         );
+//       }
+//     }
+
+//     // if (room_id === 88) {
+//     //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13] } });
+//     // } else if (room_id === 89) {
+//     //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13, 88] } });
+//     // }
+
+//     // Tambahkan data ke tabel history_booking_rooms
+//     await HistoryBookingRoom.create({
+//       booking_room_id: bookingDetail.booking_room_id,
+//       room_id: bookingDetail.room_id,
+//       days: bookingDetail.days,
+//       nomor_pesanan: bookingDetail.nomor_pesanan,
+//       start_date: startDate,
+//       end_date: endDate,
+//       changed_at: new Date(),
+//     });
+
+//     res.status(201).json({
+//       status: "success",
+//       message:
+//         "Booking room berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
+//       data: bookingRoom,
+//     });
+//   } catch (err) {
+//     console.error("Error:", err);
+//     res.status(500).json({
+//       status: "error",
+//       message: "Gagal membuat booking room",
+//       error: err.message,
+//     });
+//   }
+// };
+
+exports.createMultipleBookingRooms = async (req, res) => {
+  try {
+    const { rooms, start_date, end_date } = req.body; // rooms adalah array berisi room_id
+    if (!start_date || !end_date || !rooms || rooms.length === 0) {
       return res.status(400).json({
         status: "error",
-        message: "Start date dan End date tidak boleh kosong",
+        message: "Start date, End date, dan rooms tidak boleh kosong",
       });
     }
 
-    // Mengonversi tanggal ke objek Date
     const startDate = new Date(start_date);
     const endDate = new Date(end_date);
 
-    // Validasi apakah startDate lebih besar dari endDate
     if (startDate > endDate) {
       return res.status(400).json({
         status: "error",
@@ -270,11 +510,9 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
-    // Set jam ke 08:00 untuk start date dan 16:00 untuk end date
     startDate.setHours(8, 0, 0, 0); // Set jam lokal ke 08:00
     endDate.setHours(16, 0, 0, 0); // Set jam lokal ke 16:00
 
-    // Validasi objek Date
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({
         status: "error",
@@ -282,9 +520,8 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
-    // Cek jika startDate kurang dari hari ini
     const today = new Date();
-    today.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+    today.setUTCHours(0, 0, 0, 0);
 
     if (startDate < today) {
       return res.status(400).json({
@@ -293,162 +530,150 @@ exports.createBookingRoom = async (req, res) => {
       });
     }
 
-    const existingBookingRoom = await BookingRoom.findOne({
-      where: {
-        room_id,
-      },
-      include: [
-        {
-          model: Booking,
-          where: {
-            [Op.or]: [
+    // Memeriksa tumpang tindih tanggal booking terlebih dahulu
+    for (const room_id of rooms) {
+      console.log(`Memeriksa room_id: ${room_id} untuk tumpang tindih tanggal`);
+      const existingBookingRoom = await BookingDetail.findOne({
+        where: { room_id },
+        include: [
+          {
+            model: BookingRoom,
+            include: [
               {
-                start_date: {
-                  [Op.lte]: endDate,
-                },
-                end_date: {
-                  [Op.gte]: startDate,
+                model: Booking,
+                where: {
+                  [Op.and]: [
+                    { start_date: { [Op.lt]: endDate } }, // Booking baru mulai sebelum booking lama berakhir
+                    { end_date: { [Op.gt]: startDate } }, // Booking baru berakhir setelah booking lama dimulai
+                  ],
                 },
               },
             ],
           },
-        },
-      ],
-    });
-
-    if (existingBookingRoom) {
-      return res.status(400).json({
-        status: "error",
-        message: "Tanggal Sudah Dipesan",
+        ],
       });
+
+      if (
+        existingBookingRoom &&
+        existingBookingRoom.BookingRoom &&
+        existingBookingRoom.BookingRoom.Booking
+      ) {
+        const conflictingBooking = existingBookingRoom.BookingRoom.Booking;
+        console.log(
+          `Conflict ditemukan untuk room_id: ${room_id}`,
+          `Booking lama: ${conflictingBooking.start_date} - ${conflictingBooking.end_date}`,
+          `Booking baru: ${startDate} - ${endDate}`
+        );
+        return res.status(400).json({
+          status: "error",
+          message: `Tanggal tertentu dengan id ${room_id} sudah dipesan pada tanggal yang dipilih`,
+        });
+      } else {
+        console.log(`Tidak ada konflik untuk room_id: ${room_id}`);
+      }
     }
 
-    // Hitung jumlah hari antara start_date dan end_date
-    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-
-    // Cek status kamar berdasarkan room_id
-    const room = await Room.findOne({
-      where: { room_id },
-      include: [{ model: Building, attributes: ["name"] }], // Pastikan Building dan nama diambil
-    });
-
-    if (!room) {
-      return res.status(404).json({
-        status: "error",
-        message: "Ruangan tidak ditemukan",
-      });
-    }
-
-    // Buat booking baru dengan start_date dan end_date
+    // Buat booking baru setelah pengecekan
     const booking = await Booking.create({
       start_date: startDate,
       end_date: endDate,
     });
     const booking_id = booking.booking_id;
 
-    const buildingMap = {
-      GedungA: "GAA",
-      GedungB: "GAB",
-      GedungC: "AC",
-    };
-
-    // Dapatkan building name sesuai dengan map, atau gunakan nama asli jika tidak ada di map
-    const buildingName =
-      buildingMap[room.Building.name.replace(/\s+/g, "")] ||
-      room.Building.name.replace(/\s+/g, "");
-
-    const roomNameMap = {
-      "R.Transit": "RT",
-      Lapangan: "L",
-      RRKecilA: "RRKA",
-      RRKecilB: "RRKB",
-      RRBesarC: "RRBC",
-      RRBesarAB: "RRBAB",
-    };
-
-    // console.log("Building Name:", buildingName);
-    const roomName =
-      roomNameMap[room.room_number.replace(/\s+/g, "")] ||
-      room.room_number.replace(/\s+/g, "");
-
-    // console.log("Building Name:", roomName);
-    // Ambil bagian hari, bulan, dan tahun dari startDate
-    const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
-    const month = String(startDate.getMonth() + 1).padStart(2, "0"); // Bulan mulai dari 0, jadi tambahkan 1
-    const year = startDate.getFullYear();
-
-    // Gabungkan menjadi format DDMMYYYY
-    const formattedDate = `${day}${month}${year}`;
-    const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
-    // console.log("Generated nomor_pesanan:", nomor_pesanan);
-
-    // Buat booking room baru
+    // Buat satu entri di tabel booking_room dengan hanya booking_room_id dan booking_id
     const bookingRoom = await BookingRoom.create({
       booking_id,
-      room_id,
-      days,
-      nomor_pesanan,
     });
+    const booking_room_id = bookingRoom.booking_room_id;
 
-    // Reset waktu startDate dan today ke awal hari
-    startDate.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
-    const todayH = new Date();
-    todayH.setUTCHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
+    // Memasukkan seluruh data ruang ke dalam tabel booking_detail
+    for (const room_id of rooms) {
+      const room = await Room.findOne({
+        where: { room_id },
+        include: [{ model: Building, attributes: ["name"] }],
+      });
 
-    // Ubah status kamar menjadi booked (status_id = 3) jika start_date adalah hari ini
-    if (startDate.getTime() === todayH.getTime()) {
-      // Ubah status kamar yang dipesan menjadi booked (status_id = 3)
-      await Room.update({ status_id: 3 }, { where: { room_id } });
-
-      // Logika tambahan untuk kamar terkait
-      const relatedRooms = [];
-      if (room_id === 88) {
-        relatedRooms.push(...[12, 13, 89]);
-      } else if ([12, 13].includes(room_id)) {
-        relatedRooms.push(...[88, 89]);
-      } else if (room_id === 14) {
-        relatedRooms.push(89);
-      } else if (room_id === 89) {
-        relatedRooms.push(...[12, 13, 14, 88]);
+      if (!room) {
+        return res.status(404).json({
+          status: "error",
+          message: `Ruangan dengan id ${room_id} tidak ditemukan`,
+        });
       }
 
-      // Perbarui status kamar terkait jika ada
-      if (relatedRooms.length > 0) {
-        await Room.update(
-          { status_id: 2 }, // Set status kamar terkait menjadi "dalam pemakaian" (status_id = 2)
-          { where: { room_id: { [Op.in]: relatedRooms } } }
-        );
+      const buildingMap = {
+        GedungA: "GAA",
+        GedungB: "GAB",
+        GedungC: "AC",
+      };
+
+      const buildingName =
+        buildingMap[room.Building.name.replace(/\s+/g, "")] ||
+        room.Building.name.replace(/\s+/g, "");
+
+      const roomNameMap = {
+        "R.Transit": "RT",
+        Lapangan: "L",
+        RRKecilA: "RRKA",
+        RRKecilB: "RRKB",
+        RRBesarC: "RRBC",
+        RRBesarAB: "RRBAB",
+      };
+
+      const roomName =
+        roomNameMap[room.room_number.replace(/\s+/g, "")] ||
+        room.room_number.replace(/\s+/g, "");
+
+      // Ambil bagian hari, bulan, dan tahun dari startDate
+      const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
+      const month = String(startDate.getMonth() + 1).padStart(2, "0"); // Bulan mulai dari 0, jadi tambahkan 1
+      const year = startDate.getFullYear();
+
+      // Gabungkan menjadi format DDMMYYYY
+      const formattedDate = `${day}${month}${year}`;
+      const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
+
+      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+      // Buat booking detail baru
+      const bookingDetail = await BookingDetail.create({
+        booking_room_id,
+        room_id,
+        nomor_pesanan,
+        days,
+      });
+
+      // Periksa apakah start_date adalah hari ini
+      if (startDate.toDateString() === today.toDateString()) {
+        // Ubah status_id pada tabel Room menjadi 3
+        await Room.update({ status_id: 3 }, { where: { room_id } });
       }
+
+      // Tambahkan data ke tabel HistoryBookingRoom
+      await HistoryBookingRoom.create({
+        booking_room_id: bookingDetail.booking_room_id,
+        room_id: bookingDetail.room_id,
+        days: bookingDetail.days,
+        nomor_pesanan: bookingDetail.nomor_pesanan,
+        start_date: startDate,
+        end_date: endDate,
+        changed_at: new Date(),
+      });
     }
-
-    // if (room_id === 88) {
-    //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13] } });
-    // } else if (room_id === 89) {
-    //   await Room.update({ status_id: 2 }, { where: { room_id: [12, 13, 88] } });
-    // }
-
-    // Tambahkan data ke tabel history_booking_rooms
-    await HistoryBookingRoom.create({
-      booking_room_id: bookingRoom.booking_room_id,
-      room_id: bookingRoom.room_id,
-      days: bookingRoom.days,
-      nomor_pesanan: bookingRoom.nomor_pesanan, // Tambahkan nomor_pesanan di sini
-      start_date: startDate,
-      end_date: endDate,
-      changed_at: new Date(), // Timestamp perubahan saat ini
-    });
 
     res.status(201).json({
       status: "success",
       message:
-        "Booking room berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
-      data: bookingRoom,
+        "Booking rooms berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
+      data: {
+        booking,
+        bookingRoom, // Hanya mengembalikan entri pertama dari booking_room
+      },
     });
   } catch (err) {
     console.error("Error:", err);
     res.status(500).json({
       status: "error",
-      message: "Gagal membuat booking room",
+      message: "Gagal membuat booking rooms",
       error: err.message,
     });
   }
@@ -485,14 +710,25 @@ exports.updateBookingRoom = async (req, res) => {
     });
   }
 
-  // Hitung jumlah hari antara start_date dan end_date
-  const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-
   try {
     // Cari booking_id terkait booking_room_id
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
-      include: [{ model: Booking }, { model: Room, include: [Building] }],
+      include: [
+        {
+          model: Booking,
+        },
+        {
+          model: BookingDetail,
+          as: "bookingDetails", // Alias sesuai dengan relasi
+          include: [
+            {
+              model: Room,
+              include: [{ model: Building }], // Pastikan Building di-include
+            },
+          ],
+        },
+      ],
     });
 
     if (!bookingRoom) {
@@ -502,65 +738,12 @@ exports.updateBookingRoom = async (req, res) => {
       });
     }
 
-    // Cek tumpang tindih dengan booking lain
-    const overlappingBooking = await BookingRoom.findOne({
-      where: {
-        room_id: bookingRoom.room_id,
-        booking_room_id: { [Op.ne]: bookingRoomId }, // Tidak termasuk booking yang sedang di-update
-      },
-      include: [
-        {
-          model: Booking,
-          where: {
-            [Op.or]: [
-              {
-                start_date: { [Op.lte]: endDate },
-                end_date: { [Op.gte]: startDate },
-              },
-            ],
-          },
-        },
-      ],
-    });
+    // Hitung jumlah hari antara start_date dan end_date
+    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
-    if (overlappingBooking) {
-      return res.status(400).json({
-        status: "error",
-        message: "Tanggal Sudah Dipesan",
-      });
-    }
-
-    // Hapus riwayat sebelumnya di tabel history_booking_rooms
-    await HistoryBookingRoom.destroy({
-      where: { booking_room_id: bookingRoomId },
-    });
-
-    // Buat nomor pesanan sesuai map building
-    const buildingMap = { GedungA: "GAA", GedungB: "GAB", GedungC: "AC" };
-    const buildingName =
-      buildingMap[bookingRoom.Room.Building.name.replace(/\s+/g, "")] ||
-      bookingRoom.Room.Building.name.replace(/\s+/g, "");
-    const roomNameMap = {
-      "R.Transit": "RT",
-      Lapangan: "L",
-      RRKecilA: "RRKA",
-      RRKecilB: "RRKB",
-      RRBesarC: "RRBC",
-      RRBesarAB: "RRBAB",
-    };
-
-    const roomName =
-      roomNameMap[bookingRoom.Room.room_number.replace(/\s+/g, "")] ||
-      bookingRoom.Room.room_number.replace(/\s+/g, "");
-    const day = String(startDate.getDate()).padStart(2, "0");
-    const month = String(startDate.getMonth() + 1).padStart(2, "0");
-    const year = startDate.getFullYear();
-    const formattedDate = `${day}${month}${year}`;
-    const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
-
-    // Update tabel BookingRoom
-    const [updatedBookingRoom] = await BookingRoom.update(
-      { days, nomor_pesanan },
+    // Update tabel BookingDetail dengan jumlah hari baru
+    const [updatedBookingDetail] = await BookingDetail.update(
+      { days }, // Update kolom days di tabel BookingDetail
       { where: { booking_room_id: bookingRoomId } }
     );
 
@@ -570,8 +753,56 @@ exports.updateBookingRoom = async (req, res) => {
       { where: { booking_id: bookingRoom.booking_id } }
     );
 
-    // Periksa jika ada yang diperbarui
-    if (updatedBookingRoom === 0 && updatedBooking === 0) {
+    // Variabel untuk menyimpan nomor pesanan
+    let nomor_pesanan = "";
+
+    // Update nomor_pesanan di setiap booking_detail
+    for (let bookingDetail of bookingRoom.bookingDetails) {
+      const room = bookingDetail.Room; // Ambil room terkait dengan bookingDetail
+
+      if (!room || !room.Building) {
+        return res.status(400).json({
+          status: "error",
+          message: "Room atau Building tidak ditemukan",
+        });
+      }
+
+      const buildingMap = { GedungA: "GAA", GedungB: "GAB", GedungC: "AC" };
+      const buildingName =
+        buildingMap[room.Building.name.replace(/\s+/g, "")] ||
+        room.Building.name.replace(/\s+/g, "");
+
+      const roomNameMap = {
+        "R.Transit": "RT",
+        Lapangan: "L",
+        RRKecilA: "RRKA",
+        RRKecilB: "RRKB",
+        RRBesarC: "RRBC",
+        RRBesarAB: "RRBAB",
+      };
+
+      const roomName =
+        room.room_number.replace(/\s+/g, "") in roomNameMap
+          ? roomNameMap[room.room_number.replace(/\s+/g, "")]
+          : room.room_number.replace(/\s+/g, "");
+
+      const day = String(startDate.getDate()).padStart(2, "0");
+      const month = String(startDate.getMonth() + 1).padStart(2, "0");
+      const year = startDate.getFullYear();
+      const formattedDate = `${day}${month}${year}`;
+
+      // Membuat nomor pesanan yang unik berdasarkan roomName untuk setiap bookingDetail
+      nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
+
+      // Update nomor pesanan untuk setiap bookingDetail
+      await BookingDetail.update(
+        { nomor_pesanan },
+        { where: { booking_detail_id: bookingDetail.booking_detail_id } }
+      );
+    }
+
+    // Periksa jika ada yang diperbarui pada BookingDetail atau Booking
+    if (updatedBookingDetail === 0 && updatedBooking === 0) {
       return res.status(404).json({
         status: "error",
         message: "Tidak ada perubahan yang dilakukan",
@@ -579,23 +810,17 @@ exports.updateBookingRoom = async (req, res) => {
     }
 
     // Tambahkan entri baru di tabel history_booking_rooms
-    // Tambahkan entri baru di tabel history_booking_rooms
     await HistoryBookingRoom.create({
       booking_room_id: bookingRoomId,
-      room_id: bookingRoom.room_id,
-      days: days, // Menggunakan nilai days yang dihitung
-      nomor_pesanan: nomor_pesanan, // Tambahkan nomor_pesanan di sini
+      room_id: bookingRoom.bookingDetails[0].Room.room_id,
+      days,
+      nomor_pesanan, // Gunakan nomor_pesanan yang telah didefinisikan
       start_date: startDate,
       end_date: endDate,
-      changed_at: new Date(), // Timestamp perubahan saat ini
+      changed_at: new Date(),
     });
 
-    // Set jam startDate dan today ke awal hari untuk perbandingan yang tepat
-    startDate.setHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
-    today.setHours(0, 0, 0, 0); // Reset jam ke awal hari dalam UTC
-
     // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
-    // Perbandingan status_id
     let newStatusId;
     if (new Date(start_date).setHours(0, 0, 0, 0) === today.getTime()) {
       newStatusId = 3; // Ganti status_id ke 3 jika start_date adalah hari ini
@@ -603,10 +828,16 @@ exports.updateBookingRoom = async (req, res) => {
       newStatusId = 1; // Ganti status_id ke 1 jika start_date bukan hari ini
     }
 
-    await Room.update(
-      { status_id: newStatusId },
-      { where: { room_id: bookingRoom.room_id } }
-    );
+    // Update status_id di semua Room yang terkait dengan bookingDetails
+    for (let bookingDetail of bookingRoom.bookingDetails) {
+      const room = bookingDetail.Room;
+      if (room) {
+        await Room.update(
+          { status_id: newStatusId },
+          { where: { room_id: room.room_id } }
+        );
+      }
+    }
 
     res.status(200).json({
       status: "success",
@@ -614,7 +845,7 @@ exports.updateBookingRoom = async (req, res) => {
         "Booking room, tanggal, status kamar, dan riwayat berhasil diperbarui",
     });
   } catch (error) {
-    console.error("Error updating booking room:", error); // Tambahkan log untuk debugging
+    console.error("Error updating booking room:", error);
     res.status(500).json({
       status: "error",
       message:
@@ -629,9 +860,15 @@ exports.deleteBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
 
   try {
-    // Cari booking_room yang ingin dihapus
+    // Cari booking_room yang ingin dihapus beserta bookingDetail
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
+      include: [
+        {
+          model: BookingDetail,
+          as: "bookingDetails",
+        },
+      ],
     });
 
     // Jika tidak ditemukan, kembalikan status 404
@@ -642,22 +879,28 @@ exports.deleteBookingRoom = async (req, res) => {
       });
     }
 
-    // Ambil booking_id dan room_id dari booking room yang ditemukan
+    // Ambil booking_id dan room_id dari booking room
     const bookingId = bookingRoom.booking_id;
-    const roomId = bookingRoom.room_id;
+    const roomIds = bookingRoom.bookingDetails.map((detail) => detail.room_id);
+
+    // Logika untuk memperbarui status kamar
+    for (const roomId of roomIds) {
+      // Periksa status_id kamar saat ini
+      const room = await Room.findOne({
+        where: { room_id: roomId },
+        attributes: ["status_id"],
+      });
+
+      // Jika status_id bukan 3, ubah menjadi 1
+      if (room && room.status_id !== 3) {
+        await Room.update({ status_id: 1 }, { where: { room_id: roomId } });
+      }
+    }
 
     // Hapus booking room berdasarkan ID
-    const deleted = await BookingRoom.destroy({
+    await BookingRoom.destroy({
       where: { booking_room_id: bookingRoomId },
     });
-
-    // Jika tidak ada booking room yang dihapus, kembalikan status 404
-    if (deleted === 0) {
-      return res.status(404).json({
-        status: "error",
-        message: "Booking room tidak ditemukan",
-      });
-    }
 
     // Memeriksa apakah ada booking room lain untuk booking_id yang sama
     const bookingRoomCount = await BookingRoom.count({
@@ -671,38 +914,35 @@ exports.deleteBookingRoom = async (req, res) => {
       });
     }
 
-    // Ubah status room menjadi 1 (tersedia)
-    await Room.update({ status_id: 1 }, { where: { room_id: roomId } });
+    // Logika tambahan untuk kamar terkait
+    const relatedRooms = new Set();
 
-    // Logika khusus untuk room_id terkait
-    if (roomId === 88) {
-      await Room.update(
-        { status_id: 1 },
-        { where: { room_id: { [Op.in]: [12, 13, 89] } } }
-      );
-    } else if (roomId === 14) {
-      await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
-    } else if (roomId === 89) {
-      await Room.update(
-        { status_id: 1 },
-        { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
-      );
+    if (roomIds.includes(88)) {
+      relatedRooms.add(12).add(13).add(89);
     }
-
-    // Logika tambahan untuk room_id 12 dan 13
-    if ([12, 13].includes(roomId)) {
+    if (roomIds.includes(14)) {
+      relatedRooms.add(89);
+    }
+    if (roomIds.includes(89)) {
+      relatedRooms.add(12).add(13).add(14).add(88);
+    }
+    if (roomIds.some((id) => [12, 13].includes(id))) {
       // Periksa apakah masih ada booking aktif untuk room_id 12 atau 13
-      const activeBookingRooms = await BookingRoom.count({
+      const activeBookingRooms = await BookingDetail.count({
         where: { room_id: { [Op.in]: [12, 13] } },
       });
 
       if (activeBookingRooms === 0) {
-        // Jika tidak ada booking aktif, ubah status 88 dan 89 menjadi 1
-        await Room.update(
-          { status_id: 1 },
-          { where: { room_id: { [Op.in]: [88, 89] } } }
-        );
+        relatedRooms.add(88).add(89);
       }
+    }
+
+    // Perbarui status kamar terkait jika diperlukan
+    if (relatedRooms.size > 0) {
+      await Room.update(
+        { status_id: 1 },
+        { where: { room_id: { [Op.in]: Array.from(relatedRooms) } } }
+      );
     }
 
     // Mengembalikan respons sukses
@@ -712,6 +952,7 @@ exports.deleteBookingRoom = async (req, res) => {
     });
   } catch (error) {
     // Menangani kesalahan
+    console.error("Error:", error);
     res.status(500).json({
       status: "error",
       message: "Gagal menghapus booking room",

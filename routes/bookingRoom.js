@@ -13,7 +13,9 @@ router.get("/booking-rooms/:id", bookingRoomController.getBookingRoomById);
 router.get("/booking-rooms/room/:id", bookingRoomController.getBookingRoomByRoomId); // Route baru ini
 
 // Membuat booking room baru (memerlukan autentikasi)
-router.post("/booking-rooms", authMiddleware, bookingRoomController.createBookingRoom);
+// router.post("/booking-rooms", authMiddleware, bookingRoomController.createBookingRoom);
+
+router.post("/booking-rooms/multruang", authMiddleware, bookingRoomController.createMultipleBookingRooms);
 
 // Memperbarui booking room (memerlukan autentikasi)
 router.put("/booking-rooms/:id", authMiddleware, bookingRoomController.updateBookingRoom);

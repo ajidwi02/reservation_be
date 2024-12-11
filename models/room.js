@@ -1,9 +1,11 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Sesuaikan path sesuai konfigurasi Anda
+const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../config/db");
 const RoomStatus = require("./roomStatus");
+const Building = require("./building");
 
-const Room = sequelize.define(
-  "Room",
+class Room extends Model {}
+
+Room.init(
   {
     room_id: {
       type: DataTypes.INTEGER,
@@ -37,15 +39,42 @@ const Room = sequelize.define(
     },
   },
   {
+    sequelize,
+    modelName: "Room",
     tableName: "room",
     timestamps: false,
   }
 );
 
+Room.belongsTo(Building, { foreignKey: "building_id" });
+Building.hasMany(Room, { foreignKey: "building_id" });
+
 Room.belongsTo(RoomStatus, { foreignKey: "status_id" });
 RoomStatus.hasMany(Room, { foreignKey: "status_id" });
 
 // Fungsi untuk mendapatkan semua ruangan dengan status
+Room.getAllByBuildingId = async (building_id) => {
+  try {
+    const rooms = await Room.findAll({
+      where: { building_id },
+      include: [
+        {
+          model: Building,
+          attributes: ["name"], // hanya ambil kolom yang diperlukan
+        },
+        {
+          model: RoomStatus,
+          attributes: ["status_name"],
+        },
+      ],
+    });
+    return rooms;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
 Room.getAllByBuildingId = async (building_id) => {
   const query = `
     SELECT 

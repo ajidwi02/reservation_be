@@ -105,33 +105,69 @@ exports.createRoom = async (req, res) => {
 };
 
 exports.updateRoom = async (req, res) => {
-  const roomId = req.params.id;
-  const roomData = req.body;
+  const { roomIds, roomData } = req.body;
 
   // Validasi request body
+  if (!Array.isArray(roomIds) || roomIds.length === 0) {
+    return res.status(400).json({
+      status: "error",
+      message: "roomIds harus berupa array yang berisi ID ruangan",
+    });
+  }
+
   if (!roomData || typeof roomData !== "object") {
     return res.status(400).json({
       status: "error",
-      message: "Data yang dikirim tidak valid",
+      message: "Data pembaruan ruangan tidak valid",
     });
   }
 
   try {
-    const [updated] = await Room.update(roomData, {
-      where: { room_id: roomId },
+    const rooms = await Room.findAll({
+      where: { room_id: roomIds },
     });
-    if (updated === 0) {
+
+    if (rooms.length === 0) {
       return res.status(404).json({
         status: "error",
         message: "Ruangan tidak ditemukan",
       });
     }
 
-    const updatedRoom = await Room.findByPk(roomId);
+    // Periksa apakah status_id yang ingin diupdate sudah sama dengan yang ada
+    const roomsWithSameStatus = rooms.filter(
+      (room) => room.status_id === roomData.status_id
+    );
+
+    if (roomsWithSameStatus.length > 0) {
+      return res.status(200).json({
+        status: "success",
+        message:
+          "Status ruangan sudah sesuai. Tidak ada perubahan yang diperlukan.",
+      });
+    }
+
+    // Melakukan pembaruan jika status berbeda
+    const [updated] = await Room.update(roomData, {
+      where: { room_id: roomIds },
+    });
+
+    if (updated === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Tidak ada ruangan yang ditemukan untuk diperbarui",
+      });
+    }
+
+    // Ambil data ruangan yang sudah diperbarui
+    const updatedRooms = await Room.findAll({
+      where: { room_id: roomIds },
+    });
+
     res.status(200).json({
       status: "success",
       message: "Ruangan berhasil diperbarui",
-      data: updatedRoom,
+      data: updatedRooms,
     });
   } catch (err) {
     res.status(500).json({

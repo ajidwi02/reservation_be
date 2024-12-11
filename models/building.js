@@ -1,22 +1,29 @@
-const { DataTypes } = require("sequelize");
+const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
-const Building = sequelize.define('Building', {
-  building_id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  }
-}, {
-  tableName: 'building',
-  timestamps: false
-});
+class Building extends Model {}
 
-// models/building.js
+Building.init(
+  {
+    building_id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Building",
+    tableName: "building",
+    timestamps: false,
+  }
+);
+
+// Fungsi untuk mendapatkan semua bangunan dengan status kamar
 Building.getAllWithRoomStatus = async () => {
   const query = `
     SELECT 
@@ -37,7 +44,7 @@ Building.getAllWithRoomStatus = async () => {
     GROUP BY 
       b.building_id, rs.status_name, rt.type_name;
   `;
-  
+
   try {
     const [results] = await sequelize.query(query);
     return results;
@@ -45,7 +52,5 @@ Building.getAllWithRoomStatus = async () => {
     throw error;
   }
 };
-
-
 
 module.exports = Building;

@@ -16,7 +16,7 @@ router.get("/rooms/:id", roomController.getRoomById);
 router.post("/rooms", authMiddleware, adminMiddleware, roomController.createRoom);
 
 // Memperbarui ruangan berdasarkan ID (memerlukan autentikasi dan admin)
-router.put("/rooms/:id", authMiddleware, adminMiddleware, roomController.updateRoom);
+router.put("/rooms/multruang", authMiddleware, adminMiddleware, roomController.updateRoom);
 
 // Menghapus ruangan berdasarkan ID (memerlukan autentikasi dan admin)
 router.delete("/rooms/:id", authMiddleware, adminMiddleware, roomController.deleteRoom);
