@@ -67,12 +67,10 @@ exports.getAllBookingDetails = async (req, res) => {
         {
           model: Room,
           attributes: ["room_number"],
-          required: false,
           include: [
             {
               model: Building,
               attributes: ["name"],
-              required: false,
             },
           ],
         },
@@ -149,9 +147,14 @@ exports.getBookingDetailsByBRoomId = async (req, res) => {
     });
 
     if (rows.length === 0) {
-      return res.status(404).json({
-        status: "error",
-        message: "Booking detail tidak ditemukan untuk booking_room_id ini",
+      // Jika tidak ada data yang ditemukan, kembalikan data kosong
+      return res.status(200).json({
+        status: "success",
+        message: "Booking detail tidak ditemukan, tetapi pencarian berhasil",
+        data: [], // Data kosong karena tidak ada hasil yang cocok
+        totalItems: count,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / limit),
       });
     }
 
