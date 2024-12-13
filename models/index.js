@@ -14,11 +14,11 @@ BookingRoom.belongsTo(Booking, { foreignKey: "booking_id" });
 
 BookingRoom.hasMany(BookingDetail, {
   foreignKey: "booking_room_id",
-  // as: "bookingDetails",
+  as: "bookingDetails",
 });
 BookingDetail.belongsTo(BookingRoom, {
   foreignKey: "booking_room_id",
-  // as: "bookingRoom",
+  as: "bookingRoom",
 });
 
 // Hubungkan BookingDetail dengan Room melalui RoomId
