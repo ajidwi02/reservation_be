@@ -43,7 +43,7 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(400).json({ 
         status: 'error',
-        message: 'Invalid credentials' 
+        message: 'Kredensial tidak valid' 
       });
     }
 

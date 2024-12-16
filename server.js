@@ -178,15 +178,17 @@ const updateExpiredBookings = async () => {
 
     const expiredRoomIds = await BookingDetail.findAll({
       attributes: ["room_id"],
-      where: {
-        booking_room_id: {
-          [Op.in]: Sequelize.literal(
-            `SELECT booking_room_id FROM booking_room WHERE booking_id IN (${expiredBookingIds.join(
-              ", "
-            )})`
-          ),
+      include: [
+        {
+          model: BookingRoom,
+          where: {
+            booking_id: {
+              [Op.in]: expiredBookingIds,
+            },
+          },
+          required: true, // untuk memastikan join yang benar
         },
-      },
+      ],
     });
 
     const expiredRoomIdList = expiredRoomIds.map((r) => r.room_id);
@@ -281,8 +283,8 @@ const checkAndUpdateMissedBookings = async () => {
   console.log("Memeriksa dan memperbarui status kamar yang terlewat...");
 
   try {
-    const today = new Date().toISOString().split("T")[0];
-
+    const today = new Date().setUTCHours(0, 0, 0, 0);
+    // const today = new Date().toISOString().split("T")[0];
     // Periksa dan perbarui kamar yang seharusnya mulai hari ini atau sebelumnya
     const missedBookings = await Booking.findAll({
       attributes: ["start_date", "booking_id"],
@@ -449,6 +451,53 @@ const checkAndUpdateMissedBookings = async () => {
         });
         // Hapus booking yang berkaitan
         await Booking.destroy({ where: { booking_id: booking.booking_id } });
+
+        // Tambahan: Perbarui status kamar terkait berdasarkan kondisi khusus
+        const expiredRoomIdList = booking.BookingRooms.flatMap((br) =>
+          br.BookingDetails.map((bd) => bd.Room.room_id)
+        );
+
+        for (const roomId of expiredRoomIdList) {
+          if (roomId === 88) {
+            const activeRooms = await BookingDetail.count({
+              where: { room_id: { [Op.in]: [12, 13] } },
+            });
+
+            // Jika tidak ada booking aktif untuk room_id 12 dan 13
+            if (activeRooms === 0) {
+              await Room.update(
+                { status_id: 1 },
+                { where: { room_id: { [Op.in]: [12, 13, 89] } } }
+              );
+            }
+          } else if ([12, 13].includes(roomId)) {
+            const activeRooms = await BookingDetail.count({
+              where: { room_id: { [Op.in]: [12, 13] } },
+            });
+
+            // Jika tidak ada booking aktif untuk room_id 12 atau 13
+            if (activeRooms === 0) {
+              await Room.update(
+                { status_id: 1 },
+                { where: { room_id: { [Op.in]: [88, 89] } } }
+              );
+            }
+          } else if (roomId === 14) {
+            await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
+          } else if (roomId === 89) {
+            const activeRooms = await BookingDetail.count({
+              where: { room_id: { [Op.in]: [12, 13, 14, 88] } },
+            });
+
+            // Jika tidak ada booking aktif untuk room_id terkait
+            if (activeRooms === 0) {
+              await Room.update(
+                { status_id: 1 },
+                { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
+              );
+            }
+          }
+        }
       } else {
         console.error(
           "ID pemesanan atau tenggat tanggal tidak ada untuk pemesanan:",
@@ -469,7 +518,7 @@ const checkAndUpdateMissedBookings = async () => {
 // // Panggil fungsi saat server dimulai
 checkAndUpdateMissedBookings();
 
-// Menjalankan pada pukul 17:00
+// Menjalankan pada pukul 15:30
 cron.schedule("30 15 * * *", () => {
   console.log("Menjalankan update booking yang sudah kedaluwarsa...");
   updateExpiredBookings();
@@ -481,13 +530,13 @@ cron.schedule("0 18 * * *", () => {
   updateExpiredBookings();
 });
 
-// Menjalankan pada pukul 23:30
+// Menjalankan pada pukul 22:30
 cron.schedule("30 22 * * *", () => {
   console.log("Menjalankan update booking yang sudah kedaluwarsa...");
   updateExpiredBookings();
 });
 
-// Jalankan fungsi setiap 8 jam
+// Jalankan fungsi setiap 4 jam
 cron.schedule("0 */4 * * *", () => {
   console.log("Menjalankan update status kamar...");
   updateRoomStatus();

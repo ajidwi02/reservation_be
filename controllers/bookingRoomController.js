@@ -8,27 +8,33 @@ const BookingDetail = require("../models/bookingDetail");
 const { Op, Sequelize } = require("sequelize");
 
 exports.getAllBookingRooms = async (req, res) => {
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 6, buildingName } = req.query;
 
   const offset = (page - 1) * limit;
 
+  let buildingFilter = {};
+  if (buildingName) {
+    buildingFilter = { name: buildingName };
+  }
+
   try {
-    const { count, rows } = await BookingRoom.findAndCountAll({
+    const rows = await BookingRoom.findAll({
       include: [
         {
           model: Booking,
-          attributes: ["start_date", "end_date"], // Hanya mengambil tanggal dari Booking
+          attributes: ["start_date", "end_date"],
         },
         {
           model: BookingDetail,
-          attributes: ["days"], // Mengambil kolom days dari BookingDetail
+          attributes: ["days"],
           include: [
             {
               model: Room,
               include: [
                 {
                   model: Building,
-                  attributes: ["name"], // Mengambil nama dari Building
+                  attributes: ["name"],
+                  where: buildingFilter,
                 },
               ],
             },
@@ -36,25 +42,49 @@ exports.getAllBookingRooms = async (req, res) => {
         },
       ],
       order: [["booking_room_id", "DESC"]],
-      limit: parseInt(limit),
-      offset: parseInt(offset),
     });
 
-    // Format data untuk hanya mengembalikan yang diperlukan
-    const result = rows.map((bookingRoom) => {
-      return {
-        bookingRoomId: bookingRoom.booking_room_id,
-        startDate: bookingRoom.Booking.start_date,
-        endDate: bookingRoom.Booking.end_date,
-        days: bookingRoom.BookingDetails?.[0]?.days,
-        buildingName: bookingRoom.BookingDetails[0]?.Room?.Building?.name, // Mengambil nama gedung dari Room
-      };
-    });
+    // Filter data yang memiliki buildingName
+    const filteredResults = rows
+      .map((bookingRoom) => {
+        const roomNumbers = bookingRoom.BookingDetails.map(
+          (detail) => detail.room_id
+        ).length;
+        return {
+          bookingRoomId: bookingRoom.booking_room_id,
+          startDate: bookingRoom.Booking.start_date,
+          endDate: bookingRoom.Booking.end_date,
+          days: bookingRoom.BookingDetails?.[0]?.days,
+          buildingName: bookingRoom.BookingDetails[0]?.Room?.Building?.name,
+          roomNumbers: roomNumbers,
+        };
+      })
+      .filter((bookingRoom) => bookingRoom.buildingName);
+
+    // Hitung total items setelah filter
+    const count = filteredResults.length;
+
+    // Pagination pada hasil yang sudah difilter
+    const paginatedResults = filteredResults.slice(
+      offset,
+      offset + parseInt(limit)
+    );
+
+    if (paginatedResults.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        message: "Booking detail tidak ditemukan, tetapi pencarian berhasil",
+        data: [], // Data kosong karena tidak ada hasil yang cocok
+        totalItems: count,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / limit),
+      });
+    }
 
     res.status(200).json({
       status: "success",
       message: "Booking rooms berhasil diambil",
-      data: result,
+      data: paginatedResults,
       totalItems: count,
       currentPage: parseInt(page),
       totalPages: Math.ceil(count / limit),
@@ -642,6 +672,44 @@ exports.createMultipleBookingRooms = async (req, res) => {
         days,
       });
 
+      // Tambahkan console.log untuk memeriksa nilai dari start_date dan today
+
+      // Fungsi untuk membandingkan dua tanggal hanya berdasarkan tahun, bulan, dan hari
+      function isSameDay(date1, date2) {
+        return (
+          date1.getUTCFullYear() === date2.getUTCFullYear() &&
+          date1.getUTCMonth() === date2.getUTCMonth() &&
+          date1.getUTCDate() === date2.getUTCDate()
+        );
+      }
+
+      // Periksa apakah startDate adalah hari ini
+      if (isSameDay(startDate, today)) {
+        // Ubah status kamar yang dipesan menjadi "booked" (status_id = 3)
+        await Room.update({ status_id: 3 }, { where: { room_id } });
+
+        // Tentukan kamar terkait berdasarkan `room_id`
+        const relatedRoomsMap = {
+          88: [12, 13, 89],
+          12: [88, 89],
+          13: [88, 89],
+          14: [89],
+          89: [12, 13, 14, 88],
+        };
+
+        const relatedRooms = relatedRoomsMap[room_id] || [];
+
+        // Perbarui status kamar terkait jika ada
+        if (relatedRooms.length > 0) {
+          await Room.update(
+            { status_id: 2 },
+            { where: { room_id: { [Op.in]: relatedRooms } } }
+          );
+        }
+      } else {
+        console.log("Tanggal berbeda, tidak ada pembaruan status.");
+      }
+
       // Periksa apakah start_date adalah hari ini
       if (startDate.toDateString() === today.toDateString()) {
         // Ubah status_id pada tabel Room menjadi 3
@@ -884,15 +952,51 @@ exports.deleteBookingRoom = async (req, res) => {
     const roomIds = bookingRoom.bookingDetails.map((detail) => detail.room_id);
 
     // Logika untuk memperbarui status kamar
+    const today = new Date().toDateString();
+    // Logika untuk memperbarui status kamar
+    // console.log(`Tanggal hari ini: ${today}`);
     for (const roomId of roomIds) {
-      // Periksa status_id kamar saat ini
       const room = await Room.findOne({
         where: { room_id: roomId },
         attributes: ["status_id"],
       });
 
-      // Jika status_id bukan 3, ubah menjadi 1
-      if (room && room.status_id !== 3) {
+      const bookingDetail = bookingRoom.bookingDetails.find(
+        (detail) => detail.room_id === roomId
+      );
+
+      // Periksa apakah bookingDetail valid
+      if (!bookingDetail) {
+        // console.log(`Booking detail tidak ditemukan untuk room_id: ${roomId}`);
+        continue;
+      }
+      const startDate = await Booking.findOne({
+        attributes: ["start_date"],
+        where: { booking_id: bookingRoom.booking_id },
+      });
+      const endDate = await Booking.findOne({
+        attributes: ["end_date"],
+        where: { booking_id: bookingRoom.booking_id },
+      });
+
+      const startDateString = new Date(
+        startDate.dataValues.start_date
+      ).toDateString();
+      const endDateString = new Date(
+        endDate.dataValues.end_date
+      ).toDateString();
+
+      // Log status kamar saat ini dan rentang tanggal booking
+      // console.log(
+      //   `Memeriksa kamar: ${roomId}, status saat ini: ${room.status_id}`
+      // );
+      // console.log(
+      //   `Rentang tanggal booking: ${startDateString} - ${endDateString}`
+      // );
+
+      // Jika tanggal hari ini berada di antara start_date dan end_date, ubah status_id menjadi 1
+      if (today >= startDateString && today <= endDateString) {
+        // console.log(`Mengubah status kamar: ${roomId} menjadi 1`);
         await Room.update({ status_id: 1 }, { where: { room_id: roomId } });
       }
     }
