@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { validationResult } = require("express-validator");
 const User = require("../models/user");
-const authMiddleware = require('../middleware/authMiddleware');
+const authMiddleware = require("../middleware/authMiddleware");
 
 // Fungsi registrasi
 exports.register = async (req, res) => {
@@ -38,29 +38,36 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    if (req.rateLimit) {
+      return res.status(429).json({
+        status: "error",
+        message: "Terlalu banyak percobaan login. Coba lagi nanti.",
+      });
+    }
+
     // Cari user berdasarkan email
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Kredensial tidak valid' 
+      return res.status(400).json({
+        status: "error",
+        message: "Kredensial tidak valid",
       });
     }
 
     // Cek apakah password cocok
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Email atau Password salah' 
+      return res.status(400).json({
+        status: "error",
+        message: "Email atau Password salah",
       });
     }
 
     // Cek jika user adalah admin
-    if (user.role !== 'admin') {
-      return res.status(403).json({ 
-        status: 'error',
-        message: 'Akses ditolak. Hanya admin yang dapat login.' 
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        status: "error",
+        message: "Akses ditolak. Hanya admin yang dapat login.",
       });
     }
 
@@ -68,24 +75,24 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: '720h' }
+      { expiresIn: "720h" }
     );
 
     // Kirimkan response dengan status message dan data yang mencakup username, email, dan token
     res.json({
-      status: 'success',
-      message: 'Login berhasil',
+      status: "success",
+      message: "Login berhasil",
       data: {
         username: user.username,
         email: user.email,
-        token
-      }
+        token,
+      },
     });
   } catch (error) {
     res.status(500).json({
-      status: 'error',
-      message: 'Error logging in',
-      error: error.message
+      status: "error",
+      message: "Error logging in",
+      error: error.message,
     });
   }
 };
