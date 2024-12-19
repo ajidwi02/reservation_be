@@ -951,10 +951,17 @@ exports.deleteBookingRoom = async (req, res) => {
     const bookingId = bookingRoom.booking_id;
     const roomIds = bookingRoom.bookingDetails.map((detail) => detail.room_id);
 
+    // Mendapatkan tanggal start_date dan end_date dalam satu query
+    const booking = await Booking.findOne({
+      attributes: ["start_date", "end_date"],
+      where: { booking_id: bookingRoom.booking_id },
+    });
+
+    const startDate = new Date(booking.start_date).getTime();
+    const endDate = new Date(booking.end_date).getTime();
+    const today = new Date().getTime(); // Mendapatkan tanggal hari ini dalam format timestamp
+
     // Logika untuk memperbarui status kamar
-    const today = new Date().toDateString();
-    // Logika untuk memperbarui status kamar
-    // console.log(`Tanggal hari ini: ${today}`);
     for (const roomId of roomIds) {
       const room = await Room.findOne({
         where: { room_id: roomId },
@@ -967,36 +974,11 @@ exports.deleteBookingRoom = async (req, res) => {
 
       // Periksa apakah bookingDetail valid
       if (!bookingDetail) {
-        // console.log(`Booking detail tidak ditemukan untuk room_id: ${roomId}`);
         continue;
       }
-      const startDate = await Booking.findOne({
-        attributes: ["start_date"],
-        where: { booking_id: bookingRoom.booking_id },
-      });
-      const endDate = await Booking.findOne({
-        attributes: ["end_date"],
-        where: { booking_id: bookingRoom.booking_id },
-      });
-
-      const startDateString = new Date(
-        startDate.dataValues.start_date
-      ).toDateString();
-      const endDateString = new Date(
-        endDate.dataValues.end_date
-      ).toDateString();
-
-      // Log status kamar saat ini dan rentang tanggal booking
-      // console.log(
-      //   `Memeriksa kamar: ${roomId}, status saat ini: ${room.status_id}`
-      // );
-      // console.log(
-      //   `Rentang tanggal booking: ${startDateString} - ${endDateString}`
-      // );
 
       // Jika tanggal hari ini berada di antara start_date dan end_date, ubah status_id menjadi 1
-      if (today >= startDateString && today <= endDateString) {
-        // console.log(`Mengubah status kamar: ${roomId} menjadi 1`);
+      if (today >= startDate && today <= endDate) {
         await Room.update({ status_id: 1 }, { where: { room_id: roomId } });
       }
     }
