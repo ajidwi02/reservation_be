@@ -27,7 +27,7 @@ const limiter = rateLimit({
 // Rate limit khusus untuk endpoint login
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 10, // Maksimum 10 permintaan login per IP
+  max: 15, // Maksimum 10 permintaan login per IP
   message: "Terlalu banyak percobaan login. Coba lagi nanti.",
 });
 

@@ -38,12 +38,7 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    if (req.rateLimit) {
-      return res.status(429).json({
-        status: "error",
-        message: "Terlalu banyak percobaan login. Coba lagi nanti.",
-      });
-    }
+    
 
     // Cari user berdasarkan email
     const user = await User.findOne({ where: { email } });
@@ -75,7 +70,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "720h" }
+      { expiresIn: "12h" }
     );
 
     // Kirimkan response dengan status message dan data yang mencakup username, email, dan token
