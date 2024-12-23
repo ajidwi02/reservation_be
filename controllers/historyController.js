@@ -20,6 +20,7 @@ exports.getAllHistory = async (req, res) => {
     }
 
     const { count, rows } = await HistoryBookingRoom.findAndCountAll({
+      distinct: true,
       where: searchFilter,
       include: [
         {
@@ -33,7 +34,8 @@ exports.getAllHistory = async (req, res) => {
           ],
         },
       ],
-      order: [["changed_at", "DESC"]],
+      order: [["id", "DESC"]],
+
       limit: parseInt(limit),
       offset: parseInt(offset),
     });
@@ -55,7 +57,6 @@ exports.getAllHistory = async (req, res) => {
     });
   }
 };
-
 
 // Mendapatkan satu riwayat berdasarkan ID
 exports.getHistoryById = async (req, res) => {
