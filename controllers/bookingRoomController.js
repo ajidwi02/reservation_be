@@ -889,6 +889,7 @@ exports.updateBookingRoom = async (req, res) => {
     });
 
     // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
+    // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
     let newStatusId;
     if (new Date(start_date).setHours(0, 0, 0, 0) === today.getTime()) {
       newStatusId = 3; // Ganti status_id ke 3 jika start_date adalah hari ini
@@ -905,6 +906,27 @@ exports.updateBookingRoom = async (req, res) => {
           { where: { room_id: room.room_id } }
         );
       }
+    }
+
+    let relatedRooms = new Set();
+
+    // Update relasi ruang terkait berdasarkan start_date
+    if (startDate.setHours(0, 0, 0, 0) === today.getTime()) {
+      // Jika start_date adalah hari ini, set relasi ruang terkait dengan status_id 2
+      relatedRooms.add(88).add(89);
+    } else {
+      // Jika start_date bukan hari ini, set relasi ruang terkait
+      relatedRooms.add(12).add(13).add(14).add(88).add(89);
+    }
+
+    // Update status_id di ruang terkait
+    if (relatedRooms.size > 0) {
+      await Room.update(
+        {
+          status_id: startDate.setHours(0, 0, 0, 0) === today.getTime() ? 2 : 1,
+        }, // Set status_id menjadi 1 jika bukan hari ini
+        { where: { room_id: { [Op.in]: Array.from(relatedRooms) } } }
+      );
     }
 
     res.status(200).json({
