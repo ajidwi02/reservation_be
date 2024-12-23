@@ -23,7 +23,8 @@ const cron = require("node-cron");
 const app = express();
 
 // Konfigurasi CORS
-app.use(cors({ origin: process.env.URL_CORS }));
+// app.use(cors({ origin: process.env.URL_CORS }));
+app.use(cors({ origin: "http://localhost:3001" }));
 
 app.use(bodyParser.json());
 // Menambahkan middleware untuk parsing URL-encoded data
