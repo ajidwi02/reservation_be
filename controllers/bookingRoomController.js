@@ -908,25 +908,67 @@ exports.updateBookingRoom = async (req, res) => {
       }
     }
 
-    let relatedRooms = new Set();
+    const activeRoomsMap = new Map();
+    for (let bookingDetail of bookingRoom.bookingDetails) {
+      const roomId = bookingDetail.Room.room_id;
 
-    // Update relasi ruang terkait berdasarkan start_date
-    if (startDate.setHours(0, 0, 0, 0) === today.getTime()) {
-      // Jika start_date adalah hari ini, set relasi ruang terkait dengan status_id 2
-      relatedRooms.add(88).add(89);
-    } else {
-      // Jika start_date bukan hari ini, set relasi ruang terkait
-      relatedRooms.add(12).add(13).add(14).add(88).add(89);
-    }
+      const isToday =
+        new Date(start_date).setHours(0, 0, 0, 0) === today.getTime(); // Bandingkan berdasarkan timestamp
 
-    // Update status_id di ruang terkait
-    if (relatedRooms.size > 0) {
-      await Room.update(
-        {
-          status_id: startDate.setHours(0, 0, 0, 0) === today.getTime() ? 2 : 1,
-        }, // Set status_id menjadi 1 jika bukan hari ini
-        { where: { room_id: { [Op.in]: Array.from(relatedRooms) } } }
-      );
+      let relatedRooms = [];
+
+      // Menentukan room_id terkait
+      if (roomId === 12) {
+        relatedRooms = [88, 89];
+      } else if (roomId === 13) {
+        relatedRooms = [88, 89];
+      } else if (roomId === 14) {
+        relatedRooms = [89];
+      } else if (roomId === 88) {
+        relatedRooms = [12, 13, 89];
+      } else if (roomId === 89) {
+        relatedRooms = [12, 13, 14, 88];
+      }
+
+      // Tambahkan atau hapus room_id dari activeRooms
+      for (let relatedRoom of relatedRooms) {
+        const count = activeRoomsMap.get(relatedRoom) || 0;
+
+        if (isToday) {
+          // Jika hari ini, tambahkan room_id ke activeRooms
+          activeRoomsMap.set(relatedRoom, count + 1);
+        } else {
+          // Jika bukan hari ini, hapus room_id dari activeRooms
+          if (count > 0) {
+            activeRoomsMap.set(relatedRoom, count - 1);
+          }
+        }
+      }
+
+      // Perbarui status_id untuk room_id terkait
+      for (let relatedRoom of relatedRooms) {
+        const activeCount = activeRoomsMap.get(relatedRoom) || 0;
+
+        if (activeCount > 1) {
+          // Jika ada lebih dari 1 pemesanan aktif, jangan ubah status ke 1
+          await Room.update(
+            { status_id: 2 },
+            { where: { room_id: relatedRoom } }
+          );
+        } else if (activeCount === 1) {
+          // Jika ada 1 pemesanan aktif, ubah status_id ke 2
+          await Room.update(
+            { status_id: 2 },
+            { where: { room_id: relatedRoom } }
+          );
+        } else {
+          // Jika tidak ada pemesanan aktif, ubah status_id ke 1
+          await Room.update(
+            { status_id: 1 },
+            { where: { room_id: relatedRoom } }
+          );
+        }
+      }
     }
 
     res.status(200).json({
