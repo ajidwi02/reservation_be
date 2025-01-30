@@ -442,7 +442,7 @@ const checkAndUpdateMissedBookings = async () => {
 
     // Periksa dan perbarui kamar yang seharusnya berakhir sebelum hari ini (end_date < hari ini)
     const expiredBookings = await Booking.findAll({
-      attributes: ["end_date", "booking_id"],
+      attributes: ["start_date", "end_date", "booking_id"],
       where: {
         end_date: {
           [Op.lt]: new Date(), // Gunakan Op.lt untuk memastikan hanya end_date yang sudah terlewati
