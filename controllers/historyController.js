@@ -4,9 +4,11 @@ const { Op } = require("sequelize");
 
 exports.getAllHistory = async (req, res) => {
   try {
-    const { searchTerm, page = 1, limit = 5 } = req.query;
+    const { searchTerm, exportAll = false, page = 1, itemsPerPage = 5 } = req.query;
 
-    const offset = (page - 1) * limit;
+    // Jika exportAll true, batalkan paginasi dan ambil semua data
+    const limit = exportAll ? 10000 : parseInt(itemsPerPage);
+    const offset = exportAll ? 0 : (page - 1) * limit;  // Hitung offset berdasarkan page
 
     // Filter pencarian
     let searchFilter = {};
@@ -35,9 +37,8 @@ exports.getAllHistory = async (req, res) => {
         },
       ],
       order: [["id", "DESC"]],
-
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: limit,
+      offset: offset,
     });
 
     res.status(200).json({
@@ -45,8 +46,8 @@ exports.getAllHistory = async (req, res) => {
       message: "Data riwayat berhasil diambil.",
       data: rows,
       totalItems: count,
-      currentPage: parseInt(page),
       totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),  // Menambahkan currentPage ke response
     });
   } catch (error) {
     console.error("Error fetching history:", error);
@@ -57,6 +58,7 @@ exports.getAllHistory = async (req, res) => {
     });
   }
 };
+
 
 // Mendapatkan satu riwayat berdasarkan ID
 exports.getHistoryById = async (req, res) => {

@@ -522,31 +522,46 @@ exports.getDatesByBookingRoomId = async (req, res) => {
 
 exports.createMultipleBookingRooms = async (req, res) => {
   try {
-    const { rooms, start_date, end_date } = req.body; // rooms adalah array berisi room_id
-    if (!start_date || !end_date || !rooms || rooms.length === 0) {
+    const { rooms, start_date, end_date, start_time, end_time } = req.body;
+
+    // Validasi input
+    if (
+      !start_date ||
+      !end_date ||
+      !start_time ||
+      !end_time ||
+      !rooms ||
+      rooms.length === 0
+    ) {
       return res.status(400).json({
         status: "error",
-        message: "Start date, End date, dan rooms tidak boleh kosong",
+        message:
+          "Start date, End date, Time start, Time end, dan rooms tidak boleh kosong",
       });
     }
 
-    const startDate = new Date(start_date);
-    const endDate = new Date(end_date);
+    // Gabungkan tanggal dan waktu
+    const startDateString = `${start_date}${start_time}`;
+    const endDateString = `${end_date}${end_time}`;
 
-    if (startDate > endDate) {
-      return res.status(400).json({
-        status: "error",
-        message: "Start date tidak boleh lebih besar dari End date",
-      });
-    }
+    // Buat objek Date
+    const startDate = new Date(startDateString);
+    const endDate = new Date(endDateString);
 
-    startDate.setHours(8, 0, 0, 0); // Set jam lokal ke 08:00
-    endDate.setHours(16, 0, 0, 0); // Set jam lokal ke 16:00
-
+    // Validasi objek Date
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({
         status: "error",
-        message: "Tanggal tidak valid",
+        message: "Format tanggal atau waktu tidak valid",
+      });
+    }
+
+    // Validasi startDate tidak boleh lebih besar dari endDate
+    if (startDate >= endDate) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Start date dan time tidak boleh lebih besar atau sama dengan End date dan time",
       });
     }
 
@@ -560,10 +575,11 @@ exports.createMultipleBookingRooms = async (req, res) => {
       });
     }
 
-    // Memeriksa tumpang tindih tanggal booking terlebih dahulu
+    // Memeriksa semua booking yang ada untuk room tersebut
     for (const room_id of rooms) {
       console.log(`Memeriksa room_id: ${room_id} untuk tumpang tindih tanggal`);
-      const existingBookingRoom = await BookingDetail.findOne({
+
+      const existingBookings = await BookingDetail.findAll({
         where: { room_id },
         include: [
           {
@@ -573,8 +589,8 @@ exports.createMultipleBookingRooms = async (req, res) => {
                 model: Booking,
                 where: {
                   [Op.and]: [
-                    { start_date: { [Op.lt]: endDate } }, // Booking baru mulai sebelum booking lama berakhir
-                    { end_date: { [Op.gt]: startDate } }, // Booking baru berakhir setelah booking lama dimulai
+                    { start_date: { [Op.lt]: endDate } }, // Waktu mulai < waktu berakhir baru
+                    { end_date: { [Op.gt]: startDate } }, // Waktu berakhir > waktu mulai baru
                   ],
                 },
               },
@@ -583,23 +599,17 @@ exports.createMultipleBookingRooms = async (req, res) => {
         ],
       });
 
-      if (
-        existingBookingRoom &&
-        existingBookingRoom.BookingRoom &&
-        existingBookingRoom.BookingRoom.Booking
-      ) {
-        const conflictingBooking = existingBookingRoom.BookingRoom.Booking;
-        console.log(
-          `Conflict ditemukan untuk room_id: ${room_id}`,
-          `Booking lama: ${conflictingBooking.start_date} - ${conflictingBooking.end_date}`,
-          `Booking baru: ${startDate} - ${endDate}`
-        );
+      // Cek semua booking yang overlap
+      const hasConflict = existingBookings.some(
+        (bookingDetail) => bookingDetail.BookingRoom?.Booking
+      );
+
+      if (hasConflict) {
+        console.log(`Conflict ditemukan untuk room_id: ${room_id}`);
         return res.status(400).json({
           status: "error",
-          message: `Tanggal tertentu dengan id ${room_id} sudah dipesan pada tanggal yang dipilih`,
+          message: "Ruangan pada Tanggal atau Waktu Tertentu Sudah Dipesan",
         });
-      } else {
-        console.log(`Tidak ada konflik untuk room_id: ${room_id}`);
       }
     }
 
@@ -653,18 +663,15 @@ exports.createMultipleBookingRooms = async (req, res) => {
         roomNameMap[room.room_number.replace(/\s+/g, "")] ||
         room.room_number.replace(/\s+/g, "");
 
-      // Ambil bagian hari, bulan, dan tahun dari startDate
-      const day = String(startDate.getDate()).padStart(2, "0"); // Pastikan memiliki dua digit
-      const month = String(startDate.getMonth() + 1).padStart(2, "0"); // Bulan mulai dari 0, jadi tambahkan 1
+      const day = String(startDate.getDate()).padStart(2, "0");
+      const month = String(startDate.getMonth() + 1).padStart(2, "0");
       const year = startDate.getFullYear();
 
-      // Gabungkan menjadi format DDMMYYYY
       const formattedDate = `${day}${month}${year}`;
       const nomor_pesanan = `${buildingName}${roomName}${formattedDate}`;
 
       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
-      // Buat booking detail baru
       const bookingDetail = await BookingDetail.create({
         booking_room_id,
         room_id,
@@ -672,23 +679,16 @@ exports.createMultipleBookingRooms = async (req, res) => {
         days,
       });
 
-      // Tambahkan console.log untuk memeriksa nilai dari start_date dan today
+      const todayUTC = new Date();
+      todayUTC.setUTCHours(0, 0, 0, 0);
 
-      // Fungsi untuk membandingkan dua tanggal hanya berdasarkan tahun, bulan, dan hari
-      function isSameDay(date1, date2) {
-        return (
-          date1.getUTCFullYear() === date2.getUTCFullYear() &&
-          date1.getUTCMonth() === date2.getUTCMonth() &&
-          date1.getUTCDate() === date2.getUTCDate()
-        );
-      }
-
-      // Periksa apakah startDate adalah hari ini
-      if (isSameDay(startDate, today)) {
-        // Ubah status kamar yang dipesan menjadi "booked" (status_id = 3)
+      if (
+        startDate.getUTCFullYear() === todayUTC.getUTCFullYear() &&
+        startDate.getUTCMonth() === todayUTC.getUTCMonth() &&
+        startDate.getUTCDate() === todayUTC.getUTCDate()
+      ) {
         await Room.update({ status_id: 3 }, { where: { room_id } });
 
-        // Tentukan kamar terkait berdasarkan `room_id`
         const relatedRoomsMap = {
           88: [12, 13, 89],
           12: [88, 89],
@@ -699,42 +699,21 @@ exports.createMultipleBookingRooms = async (req, res) => {
 
         const relatedRooms = relatedRoomsMap[room_id] || [];
 
-        // Perbarui status kamar terkait jika ada
         if (relatedRooms.length > 0) {
           await Room.update(
             { status_id: 2 },
             { where: { room_id: { [Op.in]: relatedRooms } } }
           );
         }
-      } else {
-        console.log("Tanggal berbeda, tidak ada pembaruan status.");
       }
-
-      // Periksa apakah start_date adalah hari ini
-      if (startDate.toDateString() === today.toDateString()) {
-        // Ubah status_id pada tabel Room menjadi 3
-        await Room.update({ status_id: 3 }, { where: { room_id } });
-      }
-
-      // Tambahkan data ke tabel HistoryBookingRoom
-      await HistoryBookingRoom.create({
-        booking_room_id: bookingDetail.booking_room_id,
-        room_id: bookingDetail.room_id,
-        days: bookingDetail.days,
-        nomor_pesanan: bookingDetail.nomor_pesanan,
-        start_date: startDate,
-        end_date: endDate,
-        changed_at: new Date(),
-      });
     }
 
     res.status(201).json({
       status: "success",
-      message:
-        "Booking rooms berhasil dibuat, riwayat dicatat, dan ruangan ter-booked",
+      message: "Booking rooms berhasil dibuat, dan ruangan ter-booked",
       data: {
         booking,
-        bookingRoom, // Hanya mengembalikan entri pertama dari booking_room
+        bookingRoom,
       },
     });
   } catch (err) {
@@ -749,36 +728,55 @@ exports.createMultipleBookingRooms = async (req, res) => {
 
 exports.updateBookingRoom = async (req, res) => {
   const bookingRoomId = req.params.id;
-  let { start_date, end_date } = req.body;
+  const {
+    start_date,
+    end_date,
+    start_time, // Format: "T11:00:00Z"
+    end_time, // Format: "T13:00:00Z"
+  } = req.body;
+
+  // Gabungkan tanggal dan waktu menjadi string ISO
+  const startDateStr = `${start_date}${start_time}`; // Contoh: "2025-01-29T11:00:00Z"
+  const endDateStr = `${end_date}${end_time}`; // Contoh: "2025-02-01T13:00:00Z"
 
   // Validasi tanggal
-  let startDate = new Date(start_date);
-  let endDate = new Date(end_date);
+  let startDate = new Date(startDateStr);
+  let endDate = new Date(endDateStr);
 
-  // Set jam untuk start_date ke 07:00 dan end_date ke 16:00
-  startDate.setHours(7, 0, 0, 0); // Set start date ke jam 07:00
-  endDate.setHours(16, 0, 0, 0); // Set end date ke jam 16:00
+  // Periksa apakah tanggal valid
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return res.status(400).json({
+      status: "error",
+      message: "Format tanggal atau waktu tidak valid",
+    });
+  }
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset jam ke awal hari
+  today.setHours(0, 0, 0, 0); // Setel jam ke awal hari
 
-  // Validasi jika start_date dan end_date kurang dari hari ini
-  if (startDate < today || endDate < today) {
+  // Validasi jika bagian tanggal (tanpa waktu) kurang dari hari ini
+  const startDateWithoutTime = new Date(startDate);
+  startDateWithoutTime.setHours(0, 0, 0, 0);
+  const endDateWithoutTime = new Date(endDate);
+  endDateWithoutTime.setHours(0, 0, 0, 0);
+
+  if (startDateWithoutTime < today || endDateWithoutTime < today) {
     return res.status(400).json({
       status: "error",
       message: "Tanggal tidak boleh kurang dari hari ini",
     });
   }
 
-  // Validasi jika start_date lebih besar dari end_date
+  // Validasi jika startDate lebih besar dari endDate
   if (startDate > endDate) {
     return res.status(400).json({
       status: "error",
-      message: "Start date tidak boleh lebih besar dari End date",
+      message: "Waktu mulai tidak boleh lebih besar dari waktu selesai",
     });
   }
 
   try {
+    // [Bagian ini tetap sama seperti sebelumnya...]
     // Cari booking_id terkait booking_room_id
     const bookingRoom = await BookingRoom.findOne({
       where: { booking_room_id: bookingRoomId },
@@ -788,11 +786,11 @@ exports.updateBookingRoom = async (req, res) => {
         },
         {
           model: BookingDetail,
-          as: "bookingDetails", // Alias sesuai dengan relasi
+          as: "bookingDetails",
           include: [
             {
               model: Room,
-              include: [{ model: Building }], // Pastikan Building di-include
+              include: [{ model: Building }],
             },
           ],
         },
@@ -806,16 +804,16 @@ exports.updateBookingRoom = async (req, res) => {
       });
     }
 
-    // Hitung jumlah hari antara start_date dan end_date
+    // Hitung jumlah hari antara startDate dan endDate
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
 
-    // Update tabel BookingDetail dengan jumlah hari baru
+    // Update BookingDetail dengan days baru
     const [updatedBookingDetail] = await BookingDetail.update(
-      { days }, // Update kolom days di tabel BookingDetail
+      { days },
       { where: { booking_room_id: bookingRoomId } }
     );
 
-    // Update start_date dan end_date di tabel booking
+    // Update start_date dan end_date di Booking
     const [updatedBooking] = await Booking.update(
       { start_date: startDate, end_date: endDate },
       { where: { booking_id: bookingRoom.booking_id } }
@@ -877,18 +875,6 @@ exports.updateBookingRoom = async (req, res) => {
       });
     }
 
-    // Tambahkan entri baru di tabel history_booking_rooms
-    await HistoryBookingRoom.create({
-      booking_room_id: bookingRoomId,
-      room_id: bookingRoom.bookingDetails[0].Room.room_id,
-      days,
-      nomor_pesanan, // Gunakan nomor_pesanan yang telah didefinisikan
-      start_date: startDate,
-      end_date: endDate,
-      changed_at: new Date(),
-    });
-
-    // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
     // Update status_id di tabel room berdasarkan perbandingan startDate dengan today
     let newStatusId;
     if (new Date(start_date).setHours(0, 0, 0, 0) === today.getTime()) {
@@ -973,15 +959,13 @@ exports.updateBookingRoom = async (req, res) => {
 
     res.status(200).json({
       status: "success",
-      message:
-        "Booking room, tanggal, status kamar, dan riwayat berhasil diperbarui",
+      message: "Booking room, tanggal, status kamar berhasil diperbarui",
     });
   } catch (error) {
     console.error("Error updating booking room:", error);
     res.status(500).json({
       status: "error",
-      message:
-        "Gagal memperbarui booking room, tanggal, status kamar, dan riwayat",
+      message: "Gagal memperbarui booking room",
       error: error.message,
     });
   }
@@ -1089,10 +1073,12 @@ exports.deleteBookingRoom = async (req, res) => {
 
     // Perbarui status kamar terkait jika diperlukan
     if (relatedRooms.size > 0) {
-      await Room.update(
-        { status_id: 1 },
-        { where: { room_id: { [Op.in]: Array.from(relatedRooms) } } }
-      );
+      if (today >= startDate && today <= endDate) {
+        await Room.update(
+          { status_id: 1 },
+          { where: { room_id: { [Op.in]: Array.from(relatedRooms) } } }
+        );
+      }
     }
 
     // Mengembalikan respons sukses

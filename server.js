@@ -16,7 +16,13 @@ const adminMiddleware = require("./middleware/adminMiddleware");
 const historyRoutes = require("./routes/historyRoute");
 const detailServiceRoutes = require("./routes/detailServiceRoutes");
 const bookingDetailRoutes = require("./routes/bookingDetailRoutes");
-const { Room, BookingRoom, Booking, BookingDetail } = require("./models");
+const {
+  Room,
+  BookingRoom,
+  Booking,
+  BookingDetail,
+  HistoryBookingRoom,
+} = require("./models");
 const { Op, Sequelize } = require("sequelize");
 const cron = require("node-cron");
 
@@ -162,9 +168,9 @@ const updateExpiredBookings = async () => {
   try {
     const today = new Date().toISOString().split("T")[0];
 
-    // Bagian kode yang sudah ada
+    // Ambil semua booking yang sudah kedaluwarsa
     const expiredBookings = await Booking.findAll({
-      attributes: ["booking_id"],
+      attributes: ["booking_id", "start_date", "end_date"],
       where: {
         [Op.and]: [
           Sequelize.where(
@@ -173,10 +179,27 @@ const updateExpiredBookings = async () => {
           ),
         ],
       },
+      include: [
+        {
+          model: BookingRoom,
+          include: [
+            {
+              model: BookingDetail,
+              attributes: [
+                "booking_room_id",
+                "room_id",
+                "days",
+                "nomor_pesanan",
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     const expiredBookingIds = expiredBookings.map((b) => b.booking_id);
 
+    // Ambil semua room_id yang terkait dengan booking yang sudah kedaluwarsa
     const expiredRoomIds = await BookingDetail.findAll({
       attributes: ["room_id"],
       include: [
@@ -187,13 +210,14 @@ const updateExpiredBookings = async () => {
               [Op.in]: expiredBookingIds,
             },
           },
-          required: true, // untuk memastikan join yang benar
+          required: true,
         },
       ],
     });
 
     const expiredRoomIdList = expiredRoomIds.map((r) => r.room_id);
 
+    // Update status kamar yang sudah kedaluwarsa
     if (expiredRoomIdList.length > 0) {
       await Room.update(
         { status_id: 1 },
@@ -213,6 +237,26 @@ const updateExpiredBookings = async () => {
       console.log("Tidak ada kamar yang perlu diperbarui.");
     }
 
+    // Tambahkan riwayat ke HistoryBookingRoom sebelum menghapus data booking
+    for (const booking of expiredBookings) {
+      for (const bookingRoom of booking.BookingRooms) {
+        for (const bookingDetail of bookingRoom.BookingDetails) {
+          await HistoryBookingRoom.create({
+            booking_room_id: bookingDetail.booking_room_id,
+            room_id: bookingDetail.room_id,
+            days: bookingDetail.days,
+            nomor_pesanan: bookingDetail.nomor_pesanan,
+            start_date: booking.start_date,
+            end_date: booking.end_date,
+            changed_at: new Date(),
+          });
+        }
+      }
+    }
+
+    console.log("Riwayat booking berhasil ditambahkan ke HistoryBookingRoom.");
+
+    // Hapus data dari tabel booking_room
     await BookingRoom.destroy({
       where: {
         booking_id: {
@@ -223,6 +267,7 @@ const updateExpiredBookings = async () => {
 
     console.log("Data dari tabel booking_room berhasil dihapus.");
 
+    // Hapus data dari tabel booking
     await Booking.destroy({
       where: {
         booking_id: {
@@ -442,6 +487,23 @@ const checkAndUpdateMissedBookings = async () => {
             },
           }
         );
+
+        for (const booking of expiredBookings) {
+          for (const bookingRoom of booking.BookingRooms) {
+            for (const bookingDetail of bookingRoom.BookingDetails) {
+              await HistoryBookingRoom.create({
+                booking_room_id: bookingDetail.booking_room_id,
+                room_id: bookingDetail.Room.room_id,
+                days: bookingDetail.days,
+                nomor_pesanan: bookingDetail.nomor_pesanan,
+                start_date: booking.start_date,
+                end_date: booking.end_date,
+                changed_at: new Date(),
+              });
+            }
+          }
+        }
+
         // Hapus booking_room yang berkaitan
         await BookingRoom.destroy({
           where: {
@@ -520,7 +582,7 @@ const checkAndUpdateMissedBookings = async () => {
 checkAndUpdateMissedBookings();
 
 // Menjalankan pada pukul 15:30
-cron.schedule("30 15 * * *", () => {
+cron.schedule("30 16 * * *", () => {
   console.log("Menjalankan update booking yang sudah kedaluwarsa...");
   updateExpiredBookings();
 });

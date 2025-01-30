@@ -12,7 +12,7 @@ exports.register = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { username, email, password, role } = req.body;
+  const { username, email, password } = req.body; // Hapus role dari request body
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -20,8 +20,9 @@ exports.register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role,
+      role: "user", // Tetapkan peran secara langsung
     });
+
     res
       .status(201)
       .json({ message: "Pengguna berhasil dibuat", user: newUser });
@@ -38,8 +39,6 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    
-
     // Cari user berdasarkan email
     const user = await User.findOne({ where: { email } });
     if (!user) {

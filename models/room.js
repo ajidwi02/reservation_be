@@ -37,6 +37,10 @@ Room.init(
         key: "status_id",
       },
     },
+    harga: {
+      type: DataTypes.INTEGER, // Kolom baru untuk harga
+      allowNull: true, // Bisa diatur sesuai kebutuhan, misalnya `false` jika harga wajib
+    },
   },
   {
     sequelize,
@@ -46,13 +50,15 @@ Room.init(
   }
 );
 
+// Relasi dengan tabel Building
 Room.belongsTo(Building, { foreignKey: "building_id" });
 Building.hasMany(Room, { foreignKey: "building_id" });
 
+// Relasi dengan tabel RoomStatus
 Room.belongsTo(RoomStatus, { foreignKey: "status_id" });
 RoomStatus.hasMany(Room, { foreignKey: "status_id" });
 
-// Fungsi untuk mendapatkan semua ruangan dengan status
+// Fungsi untuk mendapatkan semua ruangan berdasarkan building_id
 Room.getAllByBuildingId = async (building_id) => {
   try {
     const rooms = await Room.findAll({
@@ -75,6 +81,7 @@ Room.getAllByBuildingId = async (building_id) => {
   }
 };
 
+// Fungsi untuk query custom berdasarkan building_id
 Room.getAllByBuildingId = async (building_id) => {
   const query = `
     SELECT 
@@ -82,7 +89,8 @@ Room.getAllByBuildingId = async (building_id) => {
       room.room_number, 
       building.name AS building_name, 
       room_status.status_name,
-      room.room_type_id
+      room.room_type_id,
+      room.harga 
     FROM 
       room
     JOIN 
@@ -110,7 +118,8 @@ Room.getById = async (id) => {
       room.room_id, 
       room.room_number, 
       building.name AS building_name, 
-      room_status.status_name
+      room_status.status_name,
+      room.harga 
     FROM 
       room
     JOIN 
