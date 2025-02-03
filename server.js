@@ -330,7 +330,7 @@ const checkAndUpdateMissedBookings = async () => {
 
   try {
     const today = new Date().setUTCHours(0, 0, 0, 0);
-    // const today = new Date().toISOString().split("T")[0];
+
     // Periksa dan perbarui kamar yang seharusnya mulai hari ini atau sebelumnya
     const missedBookings = await Booking.findAll({
       attributes: ["start_date", "booking_id"],
@@ -411,12 +411,10 @@ const checkAndUpdateMissedBookings = async () => {
 
         // Kondisi khusus
         if (roomId === 88) {
-          // Update status_id ke 2
           await Room.update(
             { status_id: 2 },
             { where: { room_id: { [Op.in]: [12, 13, 89] } } }
           );
-          // Tambahan: Ubah status_id kamar terkait jadi 1 jika start_date hari ini
           await Room.update({ status_id: 1 }, { where: { room_id: 88 } });
         } else if ([12, 13].includes(roomId)) {
           await Room.update(
@@ -470,6 +468,10 @@ const checkAndUpdateMissedBookings = async () => {
       ],
     });
 
+    // Simpan booking_room_id dan booking_id yang akan dihapus
+    const bookingRoomsToDelete = [];
+    const bookingsToDelete = [];
+
     for (const booking of expiredBookings) {
       if (booking.end_date && booking.booking_id) {
         const date = booking.end_date.toISOString().split("T")[0];
@@ -488,85 +490,52 @@ const checkAndUpdateMissedBookings = async () => {
           }
         );
 
-        for (const booking of expiredBookings) {
-          for (const bookingRoom of booking.BookingRooms) {
-            for (const bookingDetail of bookingRoom.BookingDetails) {
-              await HistoryBookingRoom.create({
-                booking_room_id: bookingDetail.booking_room_id,
-                room_id: bookingDetail.Room.room_id,
-                days: bookingDetail.days,
-                nomor_pesanan: bookingDetail.nomor_pesanan,
-                start_date: booking.start_date,
-                end_date: booking.end_date,
-                changed_at: new Date(),
-              });
-            }
+        for (const bookingRoom of booking.BookingRooms) {
+          for (const bookingDetail of bookingRoom.BookingDetails) {
+            await HistoryBookingRoom.create({
+              booking_room_id: bookingDetail.booking_room_id,
+              room_id: bookingDetail.Room.room_id,
+              days: bookingDetail.days,
+              nomor_pesanan: bookingDetail.nomor_pesanan,
+              start_date: booking.start_date,
+              end_date: booking.end_date,
+              changed_at: new Date(),
+            });
           }
+
+          // Simpan booking_room_id untuk dihapus nanti
+          bookingRoomsToDelete.push(bookingRoom.booking_room_id);
         }
 
-        // Hapus booking_room yang berkaitan
-        await BookingRoom.destroy({
-          where: {
-            booking_room_id: {
-              [Op.in]: booking.BookingRooms.map((br) => br.booking_room_id),
-            },
-          },
-        });
-        // Hapus booking yang berkaitan
-        await Booking.destroy({ where: { booking_id: booking.booking_id } });
-
-        // Tambahan: Perbarui status kamar terkait berdasarkan kondisi khusus
-        const expiredRoomIdList = booking.BookingRooms.flatMap((br) =>
-          br.BookingDetails.map((bd) => bd.Room.room_id)
-        );
-
-        for (const roomId of expiredRoomIdList) {
-          if (roomId === 88) {
-            const activeRooms = await BookingDetail.count({
-              where: { room_id: { [Op.in]: [12, 13] } },
-            });
-
-            // Jika tidak ada booking aktif untuk room_id 12 dan 13
-            if (activeRooms === 0) {
-              await Room.update(
-                { status_id: 1 },
-                { where: { room_id: { [Op.in]: [12, 13, 89] } } }
-              );
-            }
-          } else if ([12, 13].includes(roomId)) {
-            const activeRooms = await BookingDetail.count({
-              where: { room_id: { [Op.in]: [12, 13] } },
-            });
-
-            // Jika tidak ada booking aktif untuk room_id 12 atau 13
-            if (activeRooms === 0) {
-              await Room.update(
-                { status_id: 1 },
-                { where: { room_id: { [Op.in]: [88, 89] } } }
-              );
-            }
-          } else if (roomId === 14) {
-            await Room.update({ status_id: 1 }, { where: { room_id: 89 } });
-          } else if (roomId === 89) {
-            const activeRooms = await BookingDetail.count({
-              where: { room_id: { [Op.in]: [12, 13, 14, 88] } },
-            });
-
-            // Jika tidak ada booking aktif untuk room_id terkait
-            if (activeRooms === 0) {
-              await Room.update(
-                { status_id: 1 },
-                { where: { room_id: { [Op.in]: [12, 13, 14, 88] } } }
-              );
-            }
-          }
-        }
+        // Simpan booking_id untuk dihapus nanti
+        bookingsToDelete.push(booking.booking_id);
       } else {
         console.error(
           "ID pemesanan atau tenggat tanggal tidak ada untuk pemesanan:",
           booking
         );
       }
+    }
+
+    // Hapus booking_room dan booking setelah semua operasi selesai
+    if (bookingRoomsToDelete.length > 0) {
+      await BookingRoom.destroy({
+        where: {
+          booking_room_id: {
+            [Op.in]: bookingRoomsToDelete,
+          },
+        },
+      });
+    }
+
+    if (bookingsToDelete.length > 0) {
+      await Booking.destroy({
+        where: {
+          booking_id: {
+            [Op.in]: bookingsToDelete,
+          },
+        },
+      });
     }
 
     console.log("Status kamar yang terlewat berhasil diperbarui.");
